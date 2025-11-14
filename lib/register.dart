@@ -4,9 +4,14 @@ import 'package:email_validator/email_validator.dart';
 import 'login.dart';
 import 'data/database.dart';
 import 'constants/colors.dart';
+import 'constants/language.dart';
+import 'widgets/language_switcher.dart';
 
 class Registration extends StatefulWidget {
-  const Registration({super.key});
+  final Function(Locale)? onLanguageChanged;
+  final Locale? currentLocale;
+
+  const Registration({super.key, this.onLanguageChanged, this.currentLocale});
 
   @override
   RegistrationState createState() => RegistrationState();
@@ -56,11 +61,15 @@ class RegistrationState extends State<Registration> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final currentLocale = widget.currentLocale ?? const Locale('en');
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          "Register",
-          style: TextStyle(
+        title: Text(
+          localizations.register,
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: AppColors.textOnDark,
           ),
@@ -68,6 +77,13 @@ class RegistrationState extends State<Registration> {
         backgroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
+        actions: [
+          if (widget.onLanguageChanged != null)
+            LanguageSwitcher(
+              currentLocale: currentLocale,
+              onLanguageChanged: widget.onLanguageChanged!,
+            ),
+        ],
       ),
       body: Container(
         color: AppColors.backgroundLight,
@@ -80,15 +96,15 @@ class RegistrationState extends State<Registration> {
                 const SizedBox(height: 40),
                 _buildTextField(
                   controller: fullNameController,
-                  label: 'Full Name',
+                  label: localizations.fullName,
                   icon: Icons.person,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Full name is required';
+                      return localizations.fullNameRequired;
                     }
                     // Check if contains only letters and spaces
                     if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
-                      return 'Full name must contain only letters';
+                      return localizations.fullNameLettersOnly;
                     }
                     return null;
                   },
@@ -96,14 +112,14 @@ class RegistrationState extends State<Registration> {
                 const SizedBox(height: 20),
                 _buildTextField(
                   controller: emailController,
-                  label: 'Email',
+                  label: localizations.email,
                   icon: Icons.email,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Email is required';
+                      return localizations.emailRequired;
                     }
                     if (!EmailValidator.validate(value)) {
-                      return 'Please enter a valid email address';
+                      return localizations.validEmail;
                     }
                     return null;
                   },
@@ -111,16 +127,16 @@ class RegistrationState extends State<Registration> {
                 const SizedBox(height: 20),
                 _buildTextField(
                   controller: phoneController,
-                  label: 'Phone Number',
+                  label: localizations.phoneNumber,
                   icon: Icons.phone,
                   keyboardType: TextInputType.phone,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Phone number is required';
+                      return localizations.phoneRequired;
                     }
                     // Check if starts with 9 or 7 and length is exactly 8
                     if (!RegExp(r'^[79]\d{7}$').hasMatch(value)) {
-                      return 'Phone number must be Omani (starts with 9 or 7) and 8 digits';
+                      return localizations.phoneOmani;
                     }
                     return null;
                   },
@@ -129,31 +145,31 @@ class RegistrationState extends State<Registration> {
                 const SizedBox(height: 20),
                 _buildTextField(
                   controller: passwordController,
-                  label: 'Password',
+                  label: localizations.password,
                   icon: Icons.lock,
                   obscureText: true,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Password is required';
+                      return localizations.passwordRequired;
                     }
                     if (value.length < 8 || value.length > 16) {
-                      return 'Password must be between 8 and 16 characters';
+                      return localizations.passwordLength;
                     }
                     // Check for uppercase letter
                     if (!RegExp(r'[A-Z]').hasMatch(value)) {
-                      return 'Password must contain at least one uppercase letter';
+                      return localizations.passwordUppercase;
                     }
                     // Check for lowercase letter
                     if (!RegExp(r'[a-z]').hasMatch(value)) {
-                      return 'Password must contain at least one lowercase letter';
+                      return localizations.passwordLowercase;
                     }
                     // Check for number
                     if (!RegExp(r'[0-9]').hasMatch(value)) {
-                      return 'Password must contain at least one number';
+                      return localizations.passwordNumber;
                     }
                     // Check for special character
                     if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
-                      return 'Password must contain at least one special character';
+                      return localizations.passwordSpecial;
                     }
                     return null;
                   },
@@ -171,9 +187,9 @@ class RegistrationState extends State<Registration> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Password Requirements:',
-                        style: TextStyle(
+                      Text(
+                        localizations.passwordRequirements,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: AppColors.textDark,
@@ -181,23 +197,23 @@ class RegistrationState extends State<Registration> {
                       ),
                       const SizedBox(height: 12),
                       _buildPasswordRequirement(
-                        '8-16 characters',
+                        localizations.characters816,
                         hasMinLength,
                       ),
                       _buildPasswordRequirement(
-                        'At least one uppercase letter',
+                        localizations.uppercaseLetter,
                         hasUppercase,
                       ),
                       _buildPasswordRequirement(
-                        'At least one lowercase letter',
+                        localizations.lowercaseLetter,
                         hasLowercase,
                       ),
                       _buildPasswordRequirement(
-                        'At least one number',
+                        localizations.oneNumber,
                         hasNumber,
                       ),
                       _buildPasswordRequirement(
-                        'At least one special character',
+                        localizations.specialCharacter,
                         hasSpecialChar,
                       ),
                     ],
@@ -206,15 +222,15 @@ class RegistrationState extends State<Registration> {
                 const SizedBox(height: 20),
                 _buildTextField(
                   controller: confirmpasswordController,
-                  label: 'Confirm Password',
+                  label: localizations.confirmPassword,
                   icon: Icons.lock,
                   obscureText: true,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Please confirm your password';
+                      return localizations.confirmPasswordRequired;
                     }
                     if (value != passwordController.text) {
-                      return 'Passwords do not match';
+                      return localizations.passwordsNotMatch;
                     }
                     return null;
                   },
@@ -235,8 +251,8 @@ class RegistrationState extends State<Registration> {
                         const SizedBox(width: 8),
                         Text(
                           passwordsMatch
-                              ? 'Passwords match'
-                              : 'Passwords do not match',
+                              ? localizations.passwordsMatch
+                              : localizations.passwordsDoNotMatch,
                           style: TextStyle(
                             color: passwordsMatch ? Colors.green : Colors.grey,
                             fontSize: 14,
@@ -258,9 +274,12 @@ class RegistrationState extends State<Registration> {
                     ),
                     elevation: 4,
                   ),
-                  child: const Text(
-                    "Register",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  child: Text(
+                    localizations.register,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -268,12 +287,21 @@ class RegistrationState extends State<Registration> {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => const Login()),
+                      MaterialPageRoute(
+                        builder:
+                            (context) => Login(
+                              onLanguageChanged: widget.onLanguageChanged,
+                              currentLocale: currentLocale,
+                            ),
+                      ),
                     );
                   },
-                  child: const Text(
-                    'Already have an account? Login here.',
-                    style: TextStyle(color: AppColors.primary, fontSize: 16),
+                  child: Text(
+                    localizations.alreadyHaveAccount,
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 16,
+                    ),
                   ),
                 ),
               ],
@@ -356,6 +384,7 @@ class RegistrationState extends State<Registration> {
 
   Future<void> onPressed() async {
     if (_formKey.currentState!.validate()) {
+      final currentLocale = widget.currentLocale ?? const Locale('en');
       await Database().registerUser(
         fullNameController.text,
         emailController.text,
@@ -365,7 +394,13 @@ class RegistrationState extends State<Registration> {
       );
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const Login()),
+        MaterialPageRoute(
+          builder:
+              (context) => Login(
+                onLanguageChanged: widget.onLanguageChanged,
+                currentLocale: currentLocale,
+              ),
+        ),
       );
     }
   }

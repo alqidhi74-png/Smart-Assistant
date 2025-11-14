@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'constants/colors.dart';
+import 'constants/language.dart';
+import 'widgets/language_switcher.dart';
 
 class AdminHome extends StatefulWidget {
-  const AdminHome({super.key});
+  final Function(Locale)? onLanguageChanged;
+  final Locale? currentLocale;
+
+  const AdminHome({super.key, this.onLanguageChanged, this.currentLocale});
 
   @override
   State<AdminHome> createState() => _AdminHomeState();
@@ -11,32 +16,42 @@ class AdminHome extends StatefulWidget {
 class _AdminHomeState extends State<AdminHome> {
   @override
   Widget build(BuildContext context) {
+    final localizations = AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final currentLocale = widget.currentLocale ?? const Locale('en');
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Admin Home',
-          style: TextStyle(color: AppColors.textOnDark),
+        title: Text(
+          localizations.adminHome,
+          style: const TextStyle(color: AppColors.textOnDark),
         ),
         backgroundColor: AppColors.primary,
         centerTitle: true,
+        actions: [
+          if (widget.onLanguageChanged != null)
+            LanguageSwitcher(
+              currentLocale: currentLocale,
+              onLanguageChanged: widget.onLanguageChanged!,
+            ),
+        ],
       ),
       backgroundColor: AppColors.backgroundLight,
-      body: const Center(
+      body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Welcome, Admin!',
-              style: TextStyle(
+              localizations.welcomeAdmin,
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textDark,
               ),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             Text(
-              'This is the admin home page',
-              style: TextStyle(color: AppColors.textGray),
+              localizations.adminHomePage,
+              style: const TextStyle(color: AppColors.textGray),
             ),
           ],
         ),

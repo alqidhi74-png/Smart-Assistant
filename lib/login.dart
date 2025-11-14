@@ -7,9 +7,14 @@ import 'forgetpassword.dart';
 import 'homepage.dart';
 import 'register.dart';
 import 'constants/colors.dart';
+import 'constants/language.dart';
+import 'widgets/language_switcher.dart';
 
 class Login extends StatefulWidget {
-  const Login({super.key});
+  final Function(Locale)? onLanguageChanged;
+  final Locale? currentLocale;
+
+  const Login({super.key, this.onLanguageChanged, this.currentLocale});
 
   @override
   LoginState createState() => LoginState();
@@ -23,11 +28,15 @@ class LoginState extends State<Login> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final currentLocale = widget.currentLocale ?? const Locale('en');
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Login',
-          style: TextStyle(
+        title: Text(
+          localizations.login,
+          style: const TextStyle(
             fontWeight: FontWeight.bold,
             color: AppColors.textOnDark,
           ),
@@ -35,6 +44,13 @@ class LoginState extends State<Login> {
         centerTitle: true,
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          if (widget.onLanguageChanged != null)
+            LanguageSwitcher(
+              currentLocale: currentLocale,
+              onLanguageChanged: widget.onLanguageChanged!,
+            ),
+        ],
       ),
       body: Container(
         color: AppColors.backgroundLight,
@@ -49,15 +65,15 @@ class LoginState extends State<Login> {
                   const SizedBox(height: 40),
                   _buildTextField(
                     controller: emailController,
-                    label: 'Email',
+                    label: localizations.email,
                     icon: Icons.email,
                     keyboardType: TextInputType.emailAddress,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Email is required';
+                        return localizations.emailRequired;
                       }
                       if (!EmailValidator.validate(value)) {
-                        return 'Please enter a valid email address';
+                        return localizations.validEmail;
                       }
                       return null;
                     },
@@ -65,12 +81,12 @@ class LoginState extends State<Login> {
                   const SizedBox(height: 20),
                   _buildTextField(
                     controller: passwordController,
-                    label: 'Password',
+                    label: localizations.password,
                     icon: Icons.lock,
                     obscureText: true,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Password is required';
+                        return localizations.passwordRequired;
                       }
                       return null;
                     },
@@ -82,13 +98,17 @@ class LoginState extends State<Login> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const ForgotPasswordScreen(),
+                          builder:
+                              (context) => ForgotPasswordScreen(
+                                onLanguageChanged: widget.onLanguageChanged,
+                                currentLocale: currentLocale,
+                              ),
                         ),
                       );
                     },
-                    child: const Text(
-                      'Forgot your password? Reset it here',
-                      style: TextStyle(
+                    child: Text(
+                      localizations.forgotPasswordLink,
+                      style: const TextStyle(
                         color: AppColors.primary,
                         fontSize: 16,
                         fontWeight: FontWeight.w400,
@@ -107,9 +127,9 @@ class LoginState extends State<Login> {
                       ),
                       elevation: 4,
                     ),
-                    child: const Text(
-                      'Login',
-                      style: TextStyle(
+                    child: Text(
+                      localizations.login,
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -121,13 +141,20 @@ class LoginState extends State<Login> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const Registration(),
+                          builder:
+                              (context) => Registration(
+                                onLanguageChanged: widget.onLanguageChanged,
+                                currentLocale: currentLocale,
+                              ),
                         ),
                       );
                     },
-                    child: const Text(
-                      "Don't have an account? Register here.",
-                      style: TextStyle(color: AppColors.primary, fontSize: 16),
+                    child: Text(
+                      localizations.dontHaveAccount,
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ],
@@ -202,17 +229,29 @@ class LoginState extends State<Login> {
           final data = snapshot.value as Map<dynamic, dynamic>;
           final fullName = data['fullName'] as String;
           final admin = data['admin'] as String;
+          final currentLocale = widget.currentLocale ?? const Locale('en');
 
           if (admin == 'Y') {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => const AdminHome()),
+              MaterialPageRoute(
+                builder:
+                    (context) => AdminHome(
+                      onLanguageChanged: widget.onLanguageChanged,
+                      currentLocale: currentLocale,
+                    ),
+              ),
             );
           } else {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => HomePage(fullName: fullName),
+                builder:
+                    (context) => HomePage(
+                      fullName: fullName,
+                      onLanguageChanged: widget.onLanguageChanged,
+                      currentLocale: currentLocale,
+                    ),
               ),
             );
           }

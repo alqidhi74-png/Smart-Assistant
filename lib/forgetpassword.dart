@@ -2,9 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:email_validator/email_validator.dart';
 import 'constants/colors.dart';
+import 'constants/language.dart';
+import 'widgets/language_switcher.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
-  const ForgotPasswordScreen({super.key});
+  final Function(Locale)? onLanguageChanged;
+  final Locale? currentLocale;
+
+  const ForgotPasswordScreen({
+    super.key,
+    this.onLanguageChanged,
+    this.currentLocale,
+  });
 
   @override
   State<ForgotPasswordScreen> createState() => ForgotPasswordScreenState();
@@ -27,9 +36,11 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         email: emailController.text.trim(),
       );
 
+      final localizations =
+          AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Password reset email sent! Check your inbox.'),
+          content: Text(localizations.passwordResetSent),
           backgroundColor: AppColors.accent,
         ),
       );
@@ -51,15 +62,26 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final currentLocale = widget.currentLocale ?? const Locale('en');
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Forgot Password',
-          style: TextStyle(color: AppColors.textOnDark),
+        title: Text(
+          localizations.forgotPassword,
+          style: const TextStyle(color: AppColors.textOnDark),
         ),
         centerTitle: true,
         backgroundColor: AppColors.primary,
         elevation: 0,
+        actions: [
+          if (widget.onLanguageChanged != null)
+            LanguageSwitcher(
+              currentLocale: currentLocale,
+              onLanguageChanged: widget.onLanguageChanged!,
+            ),
+        ],
       ),
       body: Container(
         color: AppColors.backgroundLight,
@@ -80,9 +102,9 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
-                    'Reset your password',
-                    style: TextStyle(
+                  Text(
+                    localizations.resetYourPassword,
+                    style: const TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
                       color: AppColors.textDark,
@@ -90,9 +112,12 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'Enter your email to receive a password reset link',
-                    style: TextStyle(fontSize: 16, color: AppColors.textGray),
+                  Text(
+                    localizations.enterEmailForReset,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: AppColors.textGray,
+                    ),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 30),
@@ -108,7 +133,7 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     decoration: InputDecoration(
                       filled: true,
                       fillColor: AppColors.backgroundWhite,
-                      labelText: 'Email',
+                      labelText: localizations.email,
                       labelStyle: const TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 16,
@@ -152,10 +177,10 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                     ),
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Email is required';
+                        return localizations.emailRequired;
                       }
                       if (!EmailValidator.validate(value)) {
-                        return 'Please enter a valid email address';
+                        return localizations.validEmail;
                       }
                       return null;
                     },
@@ -181,9 +206,9 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                           ),
                           elevation: 4,
                         ),
-                        child: const Text(
-                          'Send Reset Email',
-                          style: TextStyle(
+                        child: Text(
+                          localizations.sendResetEmail,
+                          style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
