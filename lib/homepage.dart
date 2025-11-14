@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'constants/colors.dart';
 
 class HomePage extends StatefulWidget {
   final String fullName;
@@ -14,20 +15,31 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home Page'),
-        backgroundColor: Colors.teal,
+        title: const Text(
+          'Home Page',
+          style: TextStyle(color: AppColors.textOnDark),
+        ),
+        backgroundColor: AppColors.primary,
         centerTitle: true,
       ),
+      backgroundColor: AppColors.backgroundWhite,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               'Welcome, ${widget.fullName}!',
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppColors.textDark,
+              ),
             ),
             const SizedBox(height: 20),
-            const Text('This is the user home page'),
+            const Text(
+              'This is the user home page',
+              style: TextStyle(color: AppColors.textGray),
+            ),
           ],
         ),
       ),

@@ -6,6 +6,7 @@ import 'adminhome.dart';
 import 'forgetpassword.dart';
 import 'homepage.dart';
 import 'register.dart';
+import 'constants/colors.dart';
 
 class Login extends StatefulWidget {
   const Login({super.key});
@@ -26,20 +27,17 @@ class LoginState extends State<Login> {
       appBar: AppBar(
         title: const Text(
           'Login',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.textOnDark,
+          ),
         ),
         centerTitle: true,
-        backgroundColor: Colors.teal,
+        backgroundColor: AppColors.primary,
         elevation: 0,
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.teal.shade400, Colors.blue.shade800],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        color: AppColors.backgroundLight,
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Center(
@@ -90,22 +88,24 @@ class LoginState extends State<Login> {
                     },
                     child: const Text(
                       'Forgot your password? Reset it here',
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      style: TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
                   ElevatedButton(
                     onPressed: onPressed,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.teal,
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.backgroundWhite,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      elevation: 8,
-                      shadowColor: Colors.teal.shade500,
-                      side: const BorderSide(color: Colors.teal, width: 2),
+                      elevation: 4,
                     ),
                     child: const Text(
                       'Login',
@@ -127,7 +127,7 @@ class LoginState extends State<Login> {
                     },
                     child: const Text(
                       "Don't have an account? Register here.",
-                      style: TextStyle(color: Colors.white, fontSize: 16),
+                      style: TextStyle(color: AppColors.primary, fontSize: 16),
                     ),
                   ),
                 ],
@@ -151,32 +151,35 @@ class LoginState extends State<Login> {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.black, fontSize: 18),
+      style: const TextStyle(color: AppColors.textDark, fontSize: 18),
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.95),
+        fillColor: AppColors.backgroundWhite,
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.teal, fontSize: 16),
-        prefixIcon: Icon(icon, color: Colors.teal),
+        labelStyle: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 16,
+        ),
+        prefixIcon: Icon(icon, color: AppColors.primary),
         contentPadding: const EdgeInsets.symmetric(
           vertical: 18,
           horizontal: 20,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.teal, width: 2),
+          borderSide: const BorderSide(color: AppColors.borderLight, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.amber, width: 3),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+          borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 3),
+          borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
       ),
       validator: validator,

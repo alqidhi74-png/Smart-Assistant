@@ -8,6 +8,7 @@ Future<void> main() async {
 
   runApp(const MyApp());
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -17,7 +18,7 @@ class MyApp extends StatelessWidget {
       title: 'Smart Assistant',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1F6EBC)),
         useMaterial3: true,
       ),
       home: const Login(),

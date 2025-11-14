@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:email_validator/email_validator.dart';
 import 'login.dart';
 import 'data/database.dart';
+import 'constants/colors.dart';
 
 class Registration extends StatefulWidget {
   const Registration({super.key});
@@ -23,26 +24,53 @@ class RegistrationState extends State<Registration> {
 
   String admin = 'N';
 
+  // Password requirements checkers
+  bool get hasMinLength =>
+      passwordController.text.length >= 8 &&
+      passwordController.text.length <= 16;
+  bool get hasUppercase => RegExp(r'[A-Z]').hasMatch(passwordController.text);
+  bool get hasLowercase => RegExp(r'[a-z]').hasMatch(passwordController.text);
+  bool get hasNumber => RegExp(r'[0-9]').hasMatch(passwordController.text);
+  bool get hasSpecialChar =>
+      RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(passwordController.text);
+  bool get passwordsMatch =>
+      passwordController.text == confirmpasswordController.text &&
+      confirmpasswordController.text.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    passwordController.addListener(() => setState(() {}));
+    confirmpasswordController.addListener(() => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    fullNameController.dispose();
+    phoneController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    confirmpasswordController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
           "Register",
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: AppColors.textOnDark,
+          ),
         ),
-        backgroundColor: Colors.teal,
+        backgroundColor: AppColors.primary,
         elevation: 0,
         centerTitle: true,
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Colors.teal.shade400, Colors.blue.shade800],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
+        color: AppColors.backgroundLight,
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Form(
@@ -130,6 +158,51 @@ class RegistrationState extends State<Registration> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 10),
+
+                // Password requirements
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.backgroundWhite,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.borderLight),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Password Requirements:',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textDark,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildPasswordRequirement(
+                        '8-16 characters',
+                        hasMinLength,
+                      ),
+                      _buildPasswordRequirement(
+                        'At least one uppercase letter',
+                        hasUppercase,
+                      ),
+                      _buildPasswordRequirement(
+                        'At least one lowercase letter',
+                        hasLowercase,
+                      ),
+                      _buildPasswordRequirement(
+                        'At least one number',
+                        hasNumber,
+                      ),
+                      _buildPasswordRequirement(
+                        'At least one special character',
+                        hasSpecialChar,
+                      ),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 20),
                 _buildTextField(
                   controller: confirmpasswordController,
@@ -146,20 +219,44 @@ class RegistrationState extends State<Registration> {
                     return null;
                   },
                 ),
+                const SizedBox(height: 10),
+
+                // Password match indicator
+                if (confirmpasswordController.text.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8.0),
+                    child: Row(
+                      children: [
+                        Icon(
+                          passwordsMatch ? Icons.check_circle : Icons.cancel,
+                          color: passwordsMatch ? Colors.green : Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          passwordsMatch
+                              ? 'Passwords match'
+                              : 'Passwords do not match',
+                          style: TextStyle(
+                            color: passwordsMatch ? Colors.green : Colors.grey,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                 const SizedBox(height: 30),
                 ElevatedButton(
                   onPressed: onPressed,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.teal,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.backgroundWhite,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    elevation: 8,
-                    shadowColor: Colors.teal.shade500,
-                    side: const BorderSide(color: Colors.teal, width: 2),
+                    elevation: 4,
                   ),
                   child: const Text(
                     "Register",
@@ -176,7 +273,7 @@ class RegistrationState extends State<Registration> {
                   },
                   child: const Text(
                     'Already have an account? Login here.',
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                    style: TextStyle(color: AppColors.primary, fontSize: 16),
                   ),
                 ),
               ],
@@ -199,35 +296,61 @@ class RegistrationState extends State<Registration> {
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.black, fontSize: 18),
+      style: const TextStyle(color: AppColors.textDark, fontSize: 18),
       decoration: InputDecoration(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.95),
+        fillColor: AppColors.backgroundWhite,
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.teal, fontSize: 16),
-        prefixIcon: Icon(icon, color: Colors.teal),
+        labelStyle: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 16,
+        ),
+        prefixIcon: Icon(icon, color: AppColors.primary),
         contentPadding: const EdgeInsets.symmetric(
           vertical: 18,
           horizontal: 20,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.teal, width: 2),
+          borderSide: const BorderSide(color: AppColors.borderLight, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.amber, width: 3),
+          borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+          borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 3),
+          borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
       ),
       validator: validator,
+    );
+  }
+
+  Widget _buildPasswordRequirement(String text, bool isValid) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(
+            isValid ? Icons.check_circle : Icons.cancel,
+            color: isValid ? Colors.green : Colors.grey,
+            size: 20,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              color: isValid ? AppColors.textDark : AppColors.textSecondary,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
