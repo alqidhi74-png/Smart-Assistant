@@ -192,6 +192,7 @@ class AppLocalizations {
       locale.languageCode == 'ar'
           ? 'هذه هي صفحة المدير الرئيسية'
           : 'This is the admin home page';
+<<<<<<< HEAD
 
   // Login error messages
   String get invalidEmailOrPassword =>
@@ -266,6 +267,8 @@ class AppLocalizations {
           ? 'هل أنت متأكد من تسجيل الخروج؟'
           : 'Are you sure you want to logout?';
   String get cancel => locale.languageCode == 'ar' ? 'إلغاء' : 'Cancel';
+=======
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
 }
 
 class _AppLocalizationsDelegate

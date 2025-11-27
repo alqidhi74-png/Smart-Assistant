@@ -27,8 +27,11 @@ class RegistrationState extends State<Registration> {
   TextEditingController passwordController = TextEditingController();
   TextEditingController confirmpasswordController = TextEditingController();
 
+<<<<<<< HEAD
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+=======
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
   String admin = 'N';
 
   // Password requirements checkers
@@ -145,6 +148,7 @@ class RegistrationState extends State<Registration> {
                 ),
 
                 const SizedBox(height: 20),
+<<<<<<< HEAD
                 _buildPasswordField(
                   controller: passwordController,
                   label: localizations.password,
@@ -154,6 +158,13 @@ class RegistrationState extends State<Registration> {
                       _obscurePassword = !_obscurePassword;
                     });
                   },
+=======
+                _buildTextField(
+                  controller: passwordController,
+                  label: localizations.password,
+                  icon: Icons.lock,
+                  obscureText: true,
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return localizations.passwordRequired;
@@ -226,6 +237,7 @@ class RegistrationState extends State<Registration> {
                   ),
                 ),
                 const SizedBox(height: 20),
+<<<<<<< HEAD
                 _buildPasswordField(
                   controller: confirmpasswordController,
                   label: localizations.confirmPassword,
@@ -235,6 +247,13 @@ class RegistrationState extends State<Registration> {
                       _obscureConfirmPassword = !_obscureConfirmPassword;
                     });
                   },
+=======
+                _buildTextField(
+                  controller: confirmpasswordController,
+                  label: localizations.confirmPassword,
+                  icon: Icons.lock,
+                  obscureText: true,
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return localizations.confirmPasswordRequired;
@@ -369,6 +388,7 @@ class RegistrationState extends State<Registration> {
     );
   }
 
+<<<<<<< HEAD
   Widget _buildPasswordField({
     required TextEditingController controller,
     required String label,
@@ -421,6 +441,8 @@ class RegistrationState extends State<Registration> {
     );
   }
 
+=======
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
   Widget _buildPasswordRequirement(String text, bool isValid) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),

@@ -25,7 +25,10 @@ class LoginState extends State<Login> {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+<<<<<<< HEAD
   bool _obscurePassword = true;
+=======
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
 
   @override
   Widget build(BuildContext context) {
@@ -80,6 +83,7 @@ class LoginState extends State<Login> {
                     },
                   ),
                   const SizedBox(height: 20),
+<<<<<<< HEAD
                   _buildPasswordField(
                     controller: passwordController,
                     label: localizations.password,
@@ -89,6 +93,13 @@ class LoginState extends State<Login> {
                         _obscurePassword = !_obscurePassword;
                       });
                     },
+=======
+                  _buildTextField(
+                    controller: passwordController,
+                    label: localizations.password,
+                    icon: Icons.lock,
+                    obscureText: true,
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return localizations.passwordRequired;
@@ -218,6 +229,7 @@ class LoginState extends State<Login> {
     );
   }
 
+<<<<<<< HEAD
   Widget _buildPasswordField({
     required TextEditingController controller,
     required String label,
@@ -275,6 +287,10 @@ class LoginState extends State<Login> {
       final localizations =
           AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
 
+=======
+  Future<void> onPressed() async {
+    if (_formKey.currentState!.validate()) {
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
       try {
         final credential = await auth.signInWithEmailAndPassword(
           email: emailController.text.trim(),
@@ -316,6 +332,7 @@ class LoginState extends State<Login> {
             );
           }
         } else {
+<<<<<<< HEAD
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(localizations.userDataNotFound),
@@ -372,6 +389,13 @@ class LoginState extends State<Login> {
             backgroundColor: AppColors.error,
             duration: const Duration(seconds: 4),
           ),
+=======
+          throw Exception('User data not found.');
+        }
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Login failed: ${e.toString()}')),
+>>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
         );
       }
     }
