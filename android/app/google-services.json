@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1026568655796",
+    "project_id": "smart-assistant-228a6",
+    "storage_bucket": "smart-assistant-228a6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1026568655796:android:f899ce70a01de21eb358e1",
+        "android_client_info": {
+          "package_name": "com.example.smart_assistant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBU0_Bi6bdsd6wNgoLAuZCRU7Jv0NGbRCQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
