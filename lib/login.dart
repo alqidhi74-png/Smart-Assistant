@@ -2,6 +2,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:email_validator/email_validator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'adminhome.dart';
 import 'forgetpassword.dart';
 import 'homepage.dart';
@@ -25,10 +26,28 @@ class LoginState extends State<Login> {
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
-<<<<<<< HEAD
   bool _obscurePassword = true;
-=======
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
+  bool _rememberMe = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRemembered();
+  }
+
+  Future<void> _loadRemembered() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remember = prefs.getBool('remember_me') ?? false;
+    final rememberedEmail = prefs.getString('remember_email') ?? '';
+    final rememberedPassword = prefs.getString('remember_password') ?? '';
+    if (remember) {
+      emailController.text = rememberedEmail;
+      passwordController.text = rememberedPassword;
+    }
+    setState(() {
+      _rememberMe = remember;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -67,6 +86,8 @@ class LoginState extends State<Login> {
                 shrinkWrap: true,
                 children: [
                   const SizedBox(height: 40),
+
+                  // Email
                   _buildTextField(
                     controller: emailController,
                     label: localizations.email,
@@ -82,8 +103,10 @@ class LoginState extends State<Login> {
                       return null;
                     },
                   ),
+
                   const SizedBox(height: 20),
-<<<<<<< HEAD
+
+                  // Password
                   _buildPasswordField(
                     controller: passwordController,
                     label: localizations.password,
@@ -93,13 +116,6 @@ class LoginState extends State<Login> {
                         _obscurePassword = !_obscurePassword;
                       });
                     },
-=======
-                  _buildTextField(
-                    controller: passwordController,
-                    label: localizations.password,
-                    icon: Icons.lock,
-                    obscureText: true,
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return localizations.passwordRequired;
@@ -108,17 +124,38 @@ class LoginState extends State<Login> {
                     },
                   ),
 
+                  const SizedBox(height: 8),
+
+                  // ***** Remember Me (الآن تحت الباسورد) *****
+                  CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    value: _rememberMe,
+                    onChanged: (val) {
+                      setState(() {
+                        _rememberMe = val ?? false;
+                      });
+                    },
+                    title: Text(
+                      AppLocalizations.of(context)?.rememberMe ??
+                          'Remember me',
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    secondary: const SizedBox.shrink(),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+
                   const SizedBox(height: 10),
+
+                  // Forgot password
                   TextButton(
                     onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder:
-                              (context) => ForgotPasswordScreen(
-                                onLanguageChanged: widget.onLanguageChanged,
-                                currentLocale: currentLocale,
-                              ),
+                          builder: (context) => ForgotPasswordScreen(
+                            onLanguageChanged: widget.onLanguageChanged,
+                            currentLocale: currentLocale,
+                          ),
                         ),
                       );
                     },
@@ -131,7 +168,10 @@ class LoginState extends State<Login> {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 20),
+
+                  // Login button
                   ElevatedButton(
                     onPressed: onPressed,
                     style: ElevatedButton.styleFrom(
@@ -151,17 +191,19 @@ class LoginState extends State<Login> {
                       ),
                     ),
                   ),
+
                   const SizedBox(height: 20),
+
+                  // Register link
                   TextButton(
                     onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder:
-                              (context) => Registration(
-                                onLanguageChanged: widget.onLanguageChanged,
-                                currentLocale: currentLocale,
-                              ),
+                          builder: (context) => Registration(
+                            onLanguageChanged: widget.onLanguageChanged,
+                            currentLocale: currentLocale,
+                          ),
                         ),
                       );
                     },
@@ -229,7 +271,6 @@ class LoginState extends State<Login> {
     );
   }
 
-<<<<<<< HEAD
   Widget _buildPasswordField({
     required TextEditingController controller,
     required String label,
@@ -284,13 +325,6 @@ class LoginState extends State<Login> {
 
   Future<void> onPressed() async {
     if (_formKey.currentState!.validate()) {
-      final localizations =
-          AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-
-=======
-  Future<void> onPressed() async {
-    if (_formKey.currentState!.validate()) {
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
       try {
         final credential = await auth.signInWithEmailAndPassword(
           email: emailController.text.trim(),
@@ -298,8 +332,12 @@ class LoginState extends State<Login> {
         );
         final uid = credential.user!.uid;
 
+        if (!mounted) return;
+
         final dbRef = FirebaseDatabase.instance.ref();
         final snapshot = await dbRef.child('users/$uid').get();
+
+        if (!mounted) return;
 
         if (snapshot.exists) {
           final data = snapshot.value as Map<dynamic, dynamic>;
@@ -307,32 +345,46 @@ class LoginState extends State<Login> {
           final admin = data['admin'] as String;
           final currentLocale = widget.currentLocale ?? const Locale('en');
 
+          // Save remember me
+          final prefs = await SharedPreferences.getInstance();
+          if (_rememberMe) {
+            await prefs.setBool('remember_me', true);
+            await prefs.setString('remember_email', emailController.text.trim());
+            await prefs.setString('remember_password', passwordController.text);
+          } else {
+            await prefs.setBool('remember_me', false);
+            await prefs.remove('remember_email');
+            await prefs.remove('remember_password');
+          }
+
+          if (!mounted) return;
+
           if (admin == 'Y') {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder:
-                    (context) => AdminHome(
-                      onLanguageChanged: widget.onLanguageChanged,
-                      currentLocale: currentLocale,
-                    ),
+                builder: (context) => AdminHome(
+                  onLanguageChanged: widget.onLanguageChanged,
+                  currentLocale: currentLocale,
+                ),
               ),
             );
           } else {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder:
-                    (context) => HomePage(
-                      fullName: fullName,
-                      onLanguageChanged: widget.onLanguageChanged,
-                      currentLocale: currentLocale,
-                    ),
+                builder: (context) => HomePage(
+                  fullName: fullName,
+                  onLanguageChanged: widget.onLanguageChanged,
+                  currentLocale: currentLocale,
+                ),
               ),
             );
           }
         } else {
-<<<<<<< HEAD
+          if (!mounted) return;
+          final localizations = AppLocalizations.of(context) ??
+              AppLocalizations(const Locale('en'));
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(localizations.userDataNotFound),
@@ -341,13 +393,15 @@ class LoginState extends State<Login> {
           );
         }
       } on FirebaseAuthException catch (e) {
-        // معالجة جميع أخطاء Firebase بدون كشف معلومات تقنية
         String errorMessage;
+        if (!mounted) return;
+        final localizations =
+            AppLocalizations.of(context) ??
+                AppLocalizations(const Locale('en'));
 
         switch (e.code) {
           case 'user-not-found':
           case 'invalid-credential':
-            // لا نكشف ما إذا كان الإيميل موجود أم لا لأسباب أمنية
             errorMessage = localizations.invalidEmailOrPassword;
             break;
           case 'wrong-password':
@@ -366,11 +420,7 @@ class LoginState extends State<Login> {
           case 'network-error':
             errorMessage = localizations.networkError;
             break;
-          case 'operation-not-allowed':
-          case 'account-exists-with-different-credential':
-          case 'email-already-in-use':
           default:
-            // رسالة عامة لجميع الأخطاء الأخرى
             errorMessage = localizations.invalidEmailOrPassword;
         }
 
@@ -382,20 +432,16 @@ class LoginState extends State<Login> {
           ),
         );
       } catch (e) {
-        // معالجة أي أخطاء أخرى بدون كشف تفاصيل تقنية
+        if (!mounted) return;
+        final localizations =
+            AppLocalizations.of(context) ??
+                AppLocalizations(const Locale('en'));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(localizations.invalidEmailOrPassword),
             backgroundColor: AppColors.error,
             duration: const Duration(seconds: 4),
           ),
-=======
-          throw Exception('User data not found.');
-        }
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: ${e.toString()}')),
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
         );
       }
     }

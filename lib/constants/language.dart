@@ -111,6 +111,12 @@ class AppLocalizations {
       locale.languageCode == 'ar'
           ? 'الاسم يجب أن يحتوي على حروف فقط'
           : 'Full name must contain only letters';
+  String get fullNameMaxLength =>
+      locale.languageCode == 'ar'
+          ? 'الاسم يجب ألا يتجاوز 30 حرفًا'
+          : 'Full name must not exceed 30 characters';
+  String get rememberMe =>
+      locale.languageCode == 'ar' ? 'تذكرني' : 'Remember me';
   String get phoneRequired =>
       locale.languageCode == 'ar'
           ? 'رقم الهاتف مطلوب'
@@ -192,8 +198,6 @@ class AppLocalizations {
       locale.languageCode == 'ar'
           ? 'هذه هي صفحة المدير الرئيسية'
           : 'This is the admin home page';
-<<<<<<< HEAD
-
   // Login error messages
   String get invalidEmailOrPassword =>
       locale.languageCode == 'ar'
@@ -267,8 +271,6 @@ class AppLocalizations {
           ? 'هل أنت متأكد من تسجيل الخروج؟'
           : 'Are you sure you want to logout?';
   String get cancel => locale.languageCode == 'ar' ? 'إلغاء' : 'Cancel';
-=======
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
 }
 
 class _AppLocalizationsDelegate

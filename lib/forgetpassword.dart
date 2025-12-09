@@ -35,6 +35,7 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: emailController.text.trim(),
       );
+      if (!mounted) return;
 
       final localizations =
           AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
@@ -47,6 +48,8 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
       Navigator.pop(context);
     } catch (e) {
+      if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Error: ${e.toString()}'),
@@ -54,9 +57,11 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         ),
       );
     } finally {
-      setState(() {
-        loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
     }
   }
 

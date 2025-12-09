@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:email_validator/email_validator.dart';
-import 'login.dart';
 import 'data/database.dart';
+import 'login.dart';
 import 'constants/colors.dart';
 import 'constants/language.dart';
 import 'widgets/language_switcher.dart';
@@ -19,22 +18,15 @@ class Registration extends StatefulWidget {
 
 class RegistrationState extends State<Registration> {
   final _formKey = GlobalKey<FormState>();
-  final auth = FirebaseAuth.instance;
-
   TextEditingController fullNameController = TextEditingController();
   TextEditingController phoneController = TextEditingController();
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   TextEditingController confirmpasswordController = TextEditingController();
-
-<<<<<<< HEAD
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-=======
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
   String admin = 'N';
 
-  // Password requirements checkers
   bool get hasMinLength =>
       passwordController.text.length >= 8 &&
       passwordController.text.length <= 16;
@@ -42,7 +34,7 @@ class RegistrationState extends State<Registration> {
   bool get hasLowercase => RegExp(r'[a-z]').hasMatch(passwordController.text);
   bool get hasNumber => RegExp(r'[0-9]').hasMatch(passwordController.text);
   bool get hasSpecialChar =>
-      RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(passwordController.text);
+      RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(passwordController.text);
   bool get passwordsMatch =>
       passwordController.text == confirmpasswordController.text &&
       confirmpasswordController.text.isNotEmpty;
@@ -107,7 +99,9 @@ class RegistrationState extends State<Registration> {
                     if (value == null || value.isEmpty) {
                       return localizations.fullNameRequired;
                     }
-                    // Check if contains only letters and spaces
+                    if (value.length > 30) {
+                      return localizations.fullNameMaxLength;
+                    }
                     if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(value)) {
                       return localizations.fullNameLettersOnly;
                     }
@@ -119,6 +113,7 @@ class RegistrationState extends State<Registration> {
                   controller: emailController,
                   label: localizations.email,
                   icon: Icons.email,
+                  keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return localizations.emailRequired;
@@ -139,16 +134,13 @@ class RegistrationState extends State<Registration> {
                     if (value == null || value.isEmpty) {
                       return localizations.phoneRequired;
                     }
-                    // Check if starts with 9 or 7 and length is exactly 8
                     if (!RegExp(r'^[79]\d{7}$').hasMatch(value)) {
                       return localizations.phoneOmani;
                     }
                     return null;
                   },
                 ),
-
                 const SizedBox(height: 20),
-<<<<<<< HEAD
                 _buildPasswordField(
                   controller: passwordController,
                   label: localizations.password,
@@ -158,13 +150,6 @@ class RegistrationState extends State<Registration> {
                       _obscurePassword = !_obscurePassword;
                     });
                   },
-=======
-                _buildTextField(
-                  controller: passwordController,
-                  label: localizations.password,
-                  icon: Icons.lock,
-                  obscureText: true,
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return localizations.passwordRequired;
@@ -172,28 +157,22 @@ class RegistrationState extends State<Registration> {
                     if (value.length < 8 || value.length > 16) {
                       return localizations.passwordLength;
                     }
-                    // Check for uppercase letter
                     if (!RegExp(r'[A-Z]').hasMatch(value)) {
                       return localizations.passwordUppercase;
                     }
-                    // Check for lowercase letter
                     if (!RegExp(r'[a-z]').hasMatch(value)) {
                       return localizations.passwordLowercase;
                     }
-                    // Check for number
                     if (!RegExp(r'[0-9]').hasMatch(value)) {
                       return localizations.passwordNumber;
                     }
-                    // Check for special character
-                    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(value)) {
+                    if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(value)) {
                       return localizations.passwordSpecial;
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 10),
-
-                // Password requirements
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -237,7 +216,6 @@ class RegistrationState extends State<Registration> {
                   ),
                 ),
                 const SizedBox(height: 20),
-<<<<<<< HEAD
                 _buildPasswordField(
                   controller: confirmpasswordController,
                   label: localizations.confirmPassword,
@@ -247,13 +225,6 @@ class RegistrationState extends State<Registration> {
                       _obscureConfirmPassword = !_obscureConfirmPassword;
                     });
                   },
-=======
-                _buildTextField(
-                  controller: confirmpasswordController,
-                  label: localizations.confirmPassword,
-                  icon: Icons.lock,
-                  obscureText: true,
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
                   validator: (value) {
                     if (value == null || value.isEmpty) {
                       return localizations.confirmPasswordRequired;
@@ -265,8 +236,6 @@ class RegistrationState extends State<Registration> {
                   },
                 ),
                 const SizedBox(height: 10),
-
-                // Password match indicator
                 if (confirmpasswordController.text.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(left: 8.0),
@@ -290,7 +259,6 @@ class RegistrationState extends State<Registration> {
                       ],
                     ),
                   ),
-
                 const SizedBox(height: 30),
                 ElevatedButton(
                   onPressed: onPressed,
@@ -388,7 +356,6 @@ class RegistrationState extends State<Registration> {
     );
   }
 
-<<<<<<< HEAD
   Widget _buildPasswordField({
     required TextEditingController controller,
     required String label,
@@ -441,8 +408,6 @@ class RegistrationState extends State<Registration> {
     );
   }
 
-=======
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
   Widget _buildPasswordRequirement(String text, bool isValid) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -470,12 +435,14 @@ class RegistrationState extends State<Registration> {
     if (_formKey.currentState!.validate()) {
       final currentLocale = widget.currentLocale ?? const Locale('en');
       await Database().registerUser(
-        fullNameController.text,
-        emailController.text,
-        phoneController.text,
-        passwordController.text,
+        fullNameController.text.trim(),
+        emailController.text.trim(),
+        phoneController.text.trim(),
+        passwordController.text.trim(),
         admin,
       );
+      if (!mounted) return;
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(

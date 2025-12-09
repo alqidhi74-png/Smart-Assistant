@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-<<<<<<< HEAD
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'constants/colors.dart';
@@ -7,11 +6,6 @@ import 'constants/language.dart';
 import 'widgets/language_switcher.dart';
 import 'changepassword.dart';
 import 'login.dart';
-=======
-import 'constants/colors.dart';
-import 'constants/language.dart';
-import 'widgets/language_switcher.dart';
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
 
 class AdminHome extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -24,7 +18,6 @@ class AdminHome extends StatefulWidget {
 }
 
 class _AdminHomeState extends State<AdminHome> {
-<<<<<<< HEAD
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _fullName = 'Admin';
 
@@ -48,7 +41,7 @@ class _AdminHomeState extends State<AdminHome> {
         }
       }
     } catch (e) {
-      // Handle error silently
+      // ignore errors
     }
   }
 
@@ -101,14 +94,6 @@ class _AdminHomeState extends State<AdminHome> {
 
     return Scaffold(
       key: _scaffoldKey,
-=======
-  @override
-  Widget build(BuildContext context) {
-    final localizations = AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-    final currentLocale = widget.currentLocale ?? const Locale('en');
-
-    return Scaffold(
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
       appBar: AppBar(
         title: Text(
           localizations.adminHome,
@@ -116,13 +101,10 @@ class _AdminHomeState extends State<AdminHome> {
         ),
         backgroundColor: AppColors.primary,
         centerTitle: true,
-<<<<<<< HEAD
         leading: IconButton(
           icon: const Icon(Icons.menu, color: AppColors.textOnDark),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
-=======
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
         actions: [
           if (widget.onLanguageChanged != null)
             LanguageSwitcher(
@@ -131,7 +113,6 @@ class _AdminHomeState extends State<AdminHome> {
             ),
         ],
       ),
-<<<<<<< HEAD
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -185,8 +166,6 @@ class _AdminHomeState extends State<AdminHome> {
           ],
         ),
       ),
-=======
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
       backgroundColor: AppColors.backgroundLight,
       body: Center(
         child: Column(
@@ -211,7 +190,3 @@ class _AdminHomeState extends State<AdminHome> {
     );
   }
 }
-<<<<<<< HEAD
-=======
-
->>>>>>> 60535d7e2aef5273a14aba9d7411eb2ffd88927b
