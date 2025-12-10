@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'data/database.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'login.dart';
 import 'constants/colors.dart';
 import 'constants/language.dart';
@@ -434,25 +435,49 @@ class RegistrationState extends State<Registration> {
   Future<void> onPressed() async {
     if (_formKey.currentState!.validate()) {
       final currentLocale = widget.currentLocale ?? const Locale('en');
-      await Database().registerUser(
-        fullNameController.text.trim(),
-        emailController.text.trim(),
-        phoneController.text.trim(),
-        passwordController.text.trim(),
-        admin,
-      );
-      if (!mounted) return;
+      final localizations =
+          AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+      try {
+        await Database().registerUser(
+          fullNameController.text.trim(),
+          emailController.text.trim(),
+          phoneController.text.trim(),
+          passwordController.text.trim(),
+          admin,
+        );
+        if (!mounted) return;
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder:
-              (context) => Login(
-                onLanguageChanged: widget.onLanguageChanged,
-                currentLocale: currentLocale,
-              ),
-        ),
-      );
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder:
+                (context) => Login(
+                  onLanguageChanged: widget.onLanguageChanged,
+                  currentLocale: currentLocale,
+                ),
+          ),
+        );
+      } on FirebaseAuthException catch (e) {
+        String message;
+        if (e.code == 'email-already-in-use') {
+          message = localizations.emailAlreadyRegistered;
+        } else if (e.code == 'weak-password') {
+          message = localizations.passwordWeak;
+        } else if (e.code == 'network-request-failed') {
+          message = localizations.networkError;
+        } else {
+          message = localizations.registerError;
+        }
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(localizations.registerError)));
+      }
     }
   }
 }

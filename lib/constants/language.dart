@@ -232,6 +232,16 @@ class AppLocalizations {
           ? 'بيانات المستخدم غير موجودة'
           : 'User data not found';
 
+  // Registration error messages
+  String get emailAlreadyRegistered =>
+      locale.languageCode == 'ar'
+          ? 'البريد الإلكتروني مسجل مسبقًا'
+          : 'Email is already registered';
+  String get registerError =>
+      locale.languageCode == 'ar'
+          ? 'حدث خطأ أثناء التسجيل. يرجى المحاولة مرة أخرى'
+          : 'An error occurred during registration. Please try again';
+
   // Change password
   String get changePassword =>
       locale.languageCode == 'ar' ? 'تغيير كلمة المرور' : 'Change Password';
