@@ -22,7 +22,9 @@ class Login extends StatefulWidget {
 }
 
 class LoginState extends State<Login> {
-  final FirebaseAuth auth = FirebaseAuth.instance;
+  // Don't call FirebaseAuth.instance at construction time to keep widgets
+  // testable without initializing Firebase. Access the instance lazily
+  // inside `onPressed` when needed.
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -136,8 +138,7 @@ class LoginState extends State<Login> {
                       });
                     },
                     title: Text(
-                      AppLocalizations.of(context)?.rememberMe ??
-                          'Remember me',
+                      AppLocalizations.of(context)?.rememberMe ?? 'Remember me',
                       style: const TextStyle(fontSize: 14),
                     ),
                     secondary: const SizedBox.shrink(),
@@ -152,10 +153,11 @@ class LoginState extends State<Login> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => ForgotPasswordScreen(
-                            onLanguageChanged: widget.onLanguageChanged,
-                            currentLocale: currentLocale,
-                          ),
+                          builder:
+                              (context) => ForgotPasswordScreen(
+                                onLanguageChanged: widget.onLanguageChanged,
+                                currentLocale: currentLocale,
+                              ),
                         ),
                       );
                     },
@@ -200,10 +202,11 @@ class LoginState extends State<Login> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => Registration(
-                            onLanguageChanged: widget.onLanguageChanged,
-                            currentLocale: currentLocale,
-                          ),
+                          builder:
+                              (context) => Registration(
+                                onLanguageChanged: widget.onLanguageChanged,
+                                currentLocale: currentLocale,
+                              ),
                         ),
                       );
                     },
@@ -326,10 +329,11 @@ class LoginState extends State<Login> {
   Future<void> onPressed() async {
     if (_formKey.currentState!.validate()) {
       try {
-        final credential = await auth.signInWithEmailAndPassword(
-          email: emailController.text.trim(),
-          password: passwordController.text.trim(),
-        );
+        final credential = await FirebaseAuth.instance
+            .signInWithEmailAndPassword(
+              email: emailController.text.trim(),
+              password: passwordController.text.trim(),
+            );
         final uid = credential.user!.uid;
 
         if (!mounted) return;
@@ -349,7 +353,10 @@ class LoginState extends State<Login> {
           final prefs = await SharedPreferences.getInstance();
           if (_rememberMe) {
             await prefs.setBool('remember_me', true);
-            await prefs.setString('remember_email', emailController.text.trim());
+            await prefs.setString(
+              'remember_email',
+              emailController.text.trim(),
+            );
             await prefs.setString('remember_password', passwordController.text);
           } else {
             await prefs.setBool('remember_me', false);
@@ -363,27 +370,30 @@ class LoginState extends State<Login> {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => AdminHome(
-                  onLanguageChanged: widget.onLanguageChanged,
-                  currentLocale: currentLocale,
-                ),
+                builder:
+                    (context) => AdminHome(
+                      onLanguageChanged: widget.onLanguageChanged,
+                      currentLocale: currentLocale,
+                    ),
               ),
             );
           } else {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(
-                builder: (context) => HomePage(
-                  fullName: fullName,
-                  onLanguageChanged: widget.onLanguageChanged,
-                  currentLocale: currentLocale,
-                ),
+                builder:
+                    (context) => HomePage(
+                      fullName: fullName,
+                      onLanguageChanged: widget.onLanguageChanged,
+                      currentLocale: currentLocale,
+                    ),
               ),
             );
           }
         } else {
           if (!mounted) return;
-          final localizations = AppLocalizations.of(context) ??
+          final localizations =
+              AppLocalizations.of(context) ??
               AppLocalizations(const Locale('en'));
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -397,7 +407,7 @@ class LoginState extends State<Login> {
         if (!mounted) return;
         final localizations =
             AppLocalizations.of(context) ??
-                AppLocalizations(const Locale('en'));
+            AppLocalizations(const Locale('en'));
 
         switch (e.code) {
           case 'user-not-found':
@@ -435,7 +445,7 @@ class LoginState extends State<Login> {
         if (!mounted) return;
         final localizations =
             AppLocalizations.of(context) ??
-                AppLocalizations(const Locale('en'));
+            AppLocalizations(const Locale('en'));
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(localizations.invalidEmailOrPassword),
