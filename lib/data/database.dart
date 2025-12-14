@@ -26,7 +26,7 @@ class Database {
         'email': email,
         'phone': phone,
         'admin': admin,
-        'passwordHash': sha256.convert(utf8.encode(password)).toString(),
+        //'passwordHash': sha256.convert(utf8.encode(password)).toString(),
       });
     } catch (e) {
       if (kDebugMode) {

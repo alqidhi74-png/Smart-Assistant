@@ -31,11 +31,16 @@ class RegistrationState extends State<Registration> {
   bool get hasMinLength =>
       passwordController.text.length >= 8 &&
       passwordController.text.length <= 16;
+
   bool get hasUppercase => RegExp(r'[A-Z]').hasMatch(passwordController.text);
+
   bool get hasLowercase => RegExp(r'[a-z]').hasMatch(passwordController.text);
+
   bool get hasNumber => RegExp(r'[0-9]').hasMatch(passwordController.text);
+
   bool get hasSpecialChar =>
       RegExp(r'[!@#\$%^&*(),.?":{}|<>]').hasMatch(passwordController.text);
+
   bool get passwordsMatch =>
       passwordController.text == confirmpasswordController.text &&
       confirmpasswordController.text.isNotEmpty;
@@ -437,6 +442,7 @@ class RegistrationState extends State<Registration> {
       final currentLocale = widget.currentLocale ?? const Locale('en');
       final localizations =
           AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+
       try {
         await Database().registerUser(
           fullNameController.text.trim(),
@@ -447,16 +453,29 @@ class RegistrationState extends State<Registration> {
         );
         if (!mounted) return;
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder:
-                (context) => Login(
-                  onLanguageChanged: widget.onLanguageChanged,
-                  currentLocale: currentLocale,
-                ),
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(localizations.registerSuccess),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
           ),
         );
+
+        Future.delayed(const Duration(seconds: 2), () {
+          if (!mounted) return;
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => Login(
+                    onLanguageChanged: widget.onLanguageChanged,
+                    currentLocale: currentLocale,
+                  ),
+            ),
+          );
+        });
       } on FirebaseAuthException catch (e) {
         String message;
         if (e.code == 'email-already-in-use') {
@@ -468,12 +487,19 @@ class RegistrationState extends State<Registration> {
         } else {
           message = localizations.registerError;
         }
+
         if (!mounted) return;
+
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(message)));
       } catch (e) {
         if (!mounted) return;
+
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(localizations.registerError)));
