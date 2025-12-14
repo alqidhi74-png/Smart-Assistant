@@ -77,7 +77,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         throw Exception('User not logged in');
       }
 
-      // إعادة المصادقة بالمستخدم الحالي
       final credential = EmailAuthProvider.credential(
         email: user.email!,
         password: currentPasswordController.text,
@@ -85,7 +84,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
       await user.reauthenticateWithCredential(credential);
 
-      // تغيير كلمة المرور
       await user.updatePassword(newPasswordController.text);
 
       if (mounted) {

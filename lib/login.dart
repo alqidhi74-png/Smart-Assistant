@@ -22,9 +22,6 @@ class Login extends StatefulWidget {
 }
 
 class LoginState extends State<Login> {
-  // Don't call FirebaseAuth.instance at construction time to keep widgets
-  // testable without initializing Firebase. Access the instance lazily
-  // inside `onPressed` when needed.
   TextEditingController emailController = TextEditingController();
   TextEditingController passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -128,7 +125,6 @@ class LoginState extends State<Login> {
 
                   const SizedBox(height: 8),
 
-                  // ***** Remember Me (الآن تحت الباسورد) *****
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     value: _rememberMe,
@@ -147,7 +143,7 @@ class LoginState extends State<Login> {
 
                   const SizedBox(height: 10),
 
-                  // Forgot password
+                  // Forgot 
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -173,7 +169,7 @@ class LoginState extends State<Login> {
 
                   const SizedBox(height: 20),
 
-                  // Login button
+                  // Login 
                   ElevatedButton(
                     onPressed: onPressed,
                     style: ElevatedButton.styleFrom(
@@ -196,7 +192,7 @@ class LoginState extends State<Login> {
 
                   const SizedBox(height: 20),
 
-                  // Register link
+                  // Register 
                   TextButton(
                     onPressed: () {
                       Navigator.push(
@@ -349,7 +345,7 @@ class LoginState extends State<Login> {
           final admin = data['admin'] as String;
           final currentLocale = widget.currentLocale ?? const Locale('en');
 
-          // Save remember me
+          //  remember me
           final prefs = await SharedPreferences.getInstance();
           if (_rememberMe) {
             await prefs.setBool('remember_me', true);
