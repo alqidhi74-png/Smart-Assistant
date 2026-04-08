@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Allow access to the camera to take bill photos.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Allow access to photos to upload bill images.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Allow saving bill photos to your library.</string>
 </dict>
 </plist>

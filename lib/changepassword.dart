@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'constants/app_layout.dart';
 import 'constants/colors.dart';
 import 'constants/language.dart';
-import 'widgets/language_switcher.dart';
+import 'core/utils.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -31,7 +32,6 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   bool _obscureConfirmPassword = true;
   bool _loading = false;
 
-  // Password requirements checkers
   bool get hasMinLength =>
       newPasswordController.text.length >= 8 &&
       newPasswordController.text.length <= 16;
@@ -70,6 +70,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     setState(() {
       _loading = true;
     });
+    if (mounted) LoadingOverlay.show(context);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -87,12 +88,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       await user.updatePassword(newPasswordController.text);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(localizations.passwordChangedSuccess),
-            backgroundColor: AppColors.accent,
-          ),
-        );
+        AppSnackBar.showSuccess(context, localizations.passwordChangedSuccess);
         Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
@@ -113,24 +109,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackBar.showError(context, errorMessage);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(localizations.passwordChangeError),
-            backgroundColor: AppColors.error,
-          ),
-        );
+        AppSnackBar.showError(context, localizations.passwordChangeError);
       }
     } finally {
       if (mounted) {
+        LoadingOverlay.hide();
         setState(() {
           _loading = false;
         });
@@ -142,37 +129,45 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   Widget build(BuildContext context) {
     final localizations =
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-    final currentLocale = widget.currentLocale ?? const Locale('en');
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
+    final cardColor =
+        isDark ? const Color(0xFF1E1E1E) : const Color(0xFFE0E0E0);
+    final textColor = isDark ? Colors.white : AppColors.textDark;
+    final secondaryTextColor =
+        isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
+    final fieldFillColor =
+        isDark ? const Color(0xFF2C2C2C) : const Color(0xFFD3D3D3);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
           localizations.changePassword,
-          style: const TextStyle(color: AppColors.textOnDark),
+          style: TextStyle(color: textColor),
         ),
-        backgroundColor: AppColors.primary,
+        backgroundColor: backgroundColor,
+        elevation: 0,
         centerTitle: true,
-        actions: [
-          if (widget.onLanguageChanged != null)
-            LanguageSwitcher(
-              currentLocale: currentLocale,
-              onLanguageChanged: widget.onLanguageChanged!,
-            ),
-        ],
+        leading: BackButton(color: textColor),
+        actions: const [],
       ),
       body: Container(
-        color: AppColors.backgroundLight,
+        color: backgroundColor,
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: AppLayout.pagePadding,
           child: Form(
             key: _formKey,
             child: ListView(
               children: [
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
                 _buildPasswordField(
                   controller: currentPasswordController,
                   label: localizations.currentPassword,
                   obscureText: _obscureCurrentPassword,
+                  fillColor: fieldFillColor,
+                  labelColor: secondaryTextColor,
+                  textColor: textColor,
+                  iconColor: textColor,
                   onToggle: () {
                     setState(() {
                       _obscureCurrentPassword = !_obscureCurrentPassword;
@@ -190,6 +185,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   controller: newPasswordController,
                   label: localizations.newPassword,
                   obscureText: _obscureNewPassword,
+                  fillColor: fieldFillColor,
+                  labelColor: secondaryTextColor,
+                  textColor: textColor,
+                  iconColor: textColor,
                   onToggle: () {
                     setState(() {
                       _obscureNewPassword = !_obscureNewPassword;
@@ -217,46 +216,54 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 10),
-                // Password requirements
+                const SizedBox(height: 16),
                 Container(
-                  padding: const EdgeInsets.all(16),
+                  padding: EdgeInsets.all(AppLayout.pagePaddingH + 6),
                   decoration: BoxDecoration(
-                    color: AppColors.backgroundWhite,
+                    color: cardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderLight),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         localizations.passwordRequirements,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textDark,
+                          color: textColor,
                         ),
                       ),
                       const SizedBox(height: 12),
                       _buildPasswordRequirement(
                         localizations.characters816,
                         hasMinLength,
+                        textColor: textColor,
+                        secondaryTextColor: secondaryTextColor,
                       ),
                       _buildPasswordRequirement(
                         localizations.uppercaseLetter,
                         hasUppercase,
+                        textColor: textColor,
+                        secondaryTextColor: secondaryTextColor,
                       ),
                       _buildPasswordRequirement(
                         localizations.lowercaseLetter,
                         hasLowercase,
+                        textColor: textColor,
+                        secondaryTextColor: secondaryTextColor,
                       ),
                       _buildPasswordRequirement(
                         localizations.oneNumber,
                         hasNumber,
+                        textColor: textColor,
+                        secondaryTextColor: secondaryTextColor,
                       ),
                       _buildPasswordRequirement(
                         localizations.specialCharacter,
                         hasSpecialChar,
+                        textColor: textColor,
+                        secondaryTextColor: secondaryTextColor,
                       ),
                     ],
                   ),
@@ -266,6 +273,10 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   controller: confirmPasswordController,
                   label: localizations.confirmPassword,
                   obscureText: _obscureConfirmPassword,
+                  fillColor: fieldFillColor,
+                  labelColor: secondaryTextColor,
+                  textColor: textColor,
+                  iconColor: textColor,
                   onToggle: () {
                     setState(() {
                       _obscureConfirmPassword = !_obscureConfirmPassword;
@@ -281,8 +292,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 10),
-                // Password match indicator
+                const SizedBox(height: 16),
                 if (confirmPasswordController.text.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(left: 8.0),
@@ -306,19 +316,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       ],
                     ),
                   ),
-                const SizedBox(height: 30),
+                const SizedBox(height: 24),
                 _loading
-                    ? const Center(
-                      child: CircularProgressIndicator(
-                        color: AppColors.primary,
-                      ),
-                    )
+                    ? const IosStyleLoading()
                     : ElevatedButton(
                       onPressed: _changePassword,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.backgroundWhite,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        backgroundColor: const Color(0xFF1F6EBC),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -326,10 +332,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                       ),
                       child: Text(
                         localizations.changePassword,
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
               ],
@@ -345,46 +348,47 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     required String label,
     required bool obscureText,
     required VoidCallback onToggle,
+    required Color fillColor,
+    required Color labelColor,
+    required Color textColor,
+    required Color iconColor,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
-      style: const TextStyle(color: AppColors.textDark, fontSize: 18),
+      style: TextStyle(color: textColor, fontSize: 16),
       decoration: InputDecoration(
         filled: true,
-        fillColor: AppColors.backgroundWhite,
+        fillColor: fillColor,
         labelText: label,
-        labelStyle: const TextStyle(
-          color: AppColors.textSecondary,
-          fontSize: 16,
-        ),
-        prefixIcon: const Icon(Icons.lock, color: AppColors.primary),
+        labelStyle: TextStyle(color: labelColor, fontSize: 14),
+        prefixIcon: Icon(Icons.lock, color: iconColor),
         suffixIcon: IconButton(
           icon: Icon(
             obscureText ? Icons.visibility : Icons.visibility_off,
-            color: AppColors.primary,
+            color: iconColor,
           ),
           onPressed: onToggle,
         ),
         contentPadding: const EdgeInsets.symmetric(
-          vertical: 18,
-          horizontal: 20,
+          vertical: 14,
+          horizontal: 16,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.borderLight, width: 1),
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: fillColor, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.primary, width: 2),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.error, width: 1),
         ),
         focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(10),
           borderSide: const BorderSide(color: AppColors.error, width: 2),
         ),
       ),
@@ -392,7 +396,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     );
   }
 
-  Widget _buildPasswordRequirement(String text, bool isValid) {
+  Widget _buildPasswordRequirement(
+    String text,
+    bool isValid, {
+    required Color textColor,
+    required Color secondaryTextColor,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
@@ -406,7 +415,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           Text(
             text,
             style: TextStyle(
-              color: isValid ? AppColors.textDark : AppColors.textSecondary,
+              color: isValid ? textColor : secondaryTextColor,
               fontSize: 14,
             ),
           ),

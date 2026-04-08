@@ -1,9 +1,12 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:email_validator/email_validator.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+import 'core/utils.dart';
+
+import 'constants/app_layout.dart';
 import 'constants/colors.dart';
 import 'constants/language.dart';
-import 'widgets/language_switcher.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -25,203 +28,262 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   bool loading = false;
 
   Future<void> resetPassword() async {
-    if (!formKey.currentState!.validate()) return;
+    if (!(formKey.currentState?.validate() ?? false)) return;
 
     setState(() {
       loading = true;
     });
+
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
 
     try {
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: emailController.text.trim(),
       );
       if (!mounted) return;
-
-      final localizations =
-          AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(localizations.passwordResetSent),
-          backgroundColor: AppColors.accent,
-        ),
-      );
-
+      setState(() {
+        loading = false;
+      });
+      AppSnackBar.showSuccess(context, localizations.passwordResetSent);
       Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: AppColors.error,
-        ),
-      );
-    } finally {
+    } on FirebaseAuthException catch (e) {
       if (mounted) {
         setState(() {
           loading = false;
         });
       }
+      if (!mounted) return;
+      AppSnackBar.showError(context, _authMessage(e, localizations));
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          loading = false;
+        });
+      }
+      if (!mounted) return;
+      AppSnackBar.showError(
+        context,
+        localizations.passwordResetGenericError,
+      );
+    }
+  }
+
+  String _authMessage(FirebaseAuthException e, AppLocalizations loc) {
+    switch (e.code) {
+      case 'invalid-email':
+        return loc.validEmail;
+      case 'user-not-found':
+        return loc.passwordResetNoUserForEmail;
+      case 'too-many-requests':
+        return loc.tooManyRequests;
+      case 'network-request-failed':
+        return loc.networkError;
+      default:
+        return loc.passwordResetGenericError;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final localizations =
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-    final currentLocale = widget.currentLocale ?? const Locale('en');
+    final isDark = theme.brightness == Brightness.dark;
+    final cardBorder =
+        isDark ? const Color(0xFF223552) : const Color(0xFFE6EBF2);
+    final titleColor = isDark ? Colors.white : AppColors.textDark;
+    final subtitleColor =
+        isDark ? const Color(0xFF9FB1C7) : AppColors.textSecondary;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          localizations.forgotPassword,
-          style: const TextStyle(color: AppColors.textOnDark),
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.primary,
-        elevation: 0,
-        actions: [
-          if (widget.onLanguageChanged != null)
-            LanguageSwitcher(
-              currentLocale: currentLocale,
-              onLanguageChanged: widget.onLanguageChanged!,
-            ),
-        ],
-      ),
       body: Container(
-        color: AppColors.backgroundLight,
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Center(
-            child: Form(
-              key: formKey,
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  const SizedBox(height: 40),
-                  Center(
-                    child: Icon(
-                      Icons.lock_reset,
-                      size: 100,
-                      color: AppColors.primary,
-                    ),
+        decoration: BoxDecoration(
+          gradient:
+              isDark
+                  ? const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF0A1628), Color(0xFF0B1E39)],
+                  )
+                  : const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFF3F6FB), Color(0xFFFFFFFF)],
                   ),
-                  const SizedBox(height: 20),
-                  Text(
-                    localizations.resetYourPassword,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    localizations.enterEmailForReset,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: AppColors.textGray,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 30),
-
-                  // Email input
-                  TextFormField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    style: const TextStyle(
-                      color: AppColors.textDark,
-                      fontSize: 18,
-                    ),
-                    decoration: InputDecoration(
-                      filled: true,
-                      fillColor: AppColors.backgroundWhite,
-                      labelText: localizations.email,
-                      labelStyle: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 16,
+        ),
+        child: SafeArea(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: AppLayout.pagePaddingH,
+                  vertical: 20,
+                ),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        maxWidth: AppLayout.formMaxWidth,
                       ),
-                      prefixIcon: const Icon(
-                        Icons.email,
-                        color: AppColors.primary,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        vertical: 18,
-                        horizontal: 20,
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.borderLight,
-                          width: 1,
+                      child: Container(
+                        padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                        decoration: BoxDecoration(
+                          color:
+                              isDark
+                                  ? const Color(0xFF121E33)
+                                  : AppColors.backgroundWhite,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: cardBorder),
+                          boxShadow: [
+                            BoxShadow(
+                              color:
+                                  isDark
+                                      ? Colors.black.withValues(alpha: 0.45)
+                                      : Colors.black.withValues(alpha: 0.08),
+                              blurRadius: 24,
+                              offset: const Offset(0, 14),
+                            ),
+                          ],
                         ),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.primary,
-                          width: 2,
-                        ),
-                      ),
-                      errorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.error,
-                          width: 1,
-                        ),
-                      ),
-                      focusedErrorBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: AppColors.error,
-                          width: 2,
-                        ),
-                      ),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return localizations.emailRequired;
-                      }
-                      if (!EmailValidator.validate(value)) {
-                        return localizations.validEmail;
-                      }
-                      return null;
-                    },
-                  ),
-
-                  const SizedBox(height: 30),
-
-                  // Button or loader
-                  loading
-                      ? const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primary,
-                        ),
-                      )
-                      : ElevatedButton(
-                        onPressed: resetPassword,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primary,
-                          foregroundColor: AppColors.backgroundWhite,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                        child: Form(
+                          key: formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: IconButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  icon: const Icon(Icons.arrow_back),
+                                  color: AppColors.primary,
+                                  tooltip: localizations.cancel,
+                                ),
+                              ),
+                              Text(
+                                localizations.forgotPassword,
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w700,
+                                  color: titleColor,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                localizations.enterEmailForReset,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: subtitleColor,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 22),
+                              TextFormField(
+                                controller: emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                style: TextStyle(
+                                  color:
+                                      isDark
+                                          ? AppColors.textOnDark
+                                          : AppColors.textDark,
+                                  fontSize: 16,
+                                ),
+                                decoration: InputDecoration(
+                                  filled: true,
+                                  fillColor:
+                                      isDark
+                                          ? const Color(0xFF12233F)
+                                          : AppColors.backgroundWhite,
+                                  labelText: localizations.email,
+                                  labelStyle: TextStyle(
+                                    color:
+                                        isDark
+                                            ? const Color(0xFFB8C7DA)
+                                            : AppColors.textGray,
+                                    fontSize: 14,
+                                  ),
+                                  prefixIcon: const Icon(
+                                    Icons.email,
+                                    color: AppColors.primary,
+                                  ),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 16,
+                                    horizontal: 20,
+                                  ),
+                                  enabledBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: cardBorder,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  focusedBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: AppColors.primary,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: theme.colorScheme.error,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  focusedErrorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: theme.colorScheme.error,
+                                      width: 2,
+                                    ),
+                                  ),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.isEmpty) {
+                                    return localizations.emailRequired;
+                                  }
+                                  if (!EmailValidator.validate(value)) {
+                                    return localizations.validEmail;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 18),
+                              loading
+                                  ? const IosStyleLoading()
+                                  : ElevatedButton(
+                                    onPressed: resetPassword,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                      ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      elevation: 2,
+                                    ),
+                                    child: Text(
+                                      localizations.sendResetEmail,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                            ],
                           ),
-                          elevation: 4,
-                        ),
-                        child: Text(
-                          localizations.sendResetEmail,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
                         ),
                       ),
-                ],
-              ),
-            ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
         ),
       ),

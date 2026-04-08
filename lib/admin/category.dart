@@ -1,0 +1,831 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
+import '../constants/app_layout.dart';
+import '../constants/colors.dart';
+import '../constants/language.dart';
+import '../services/admin_bill_cleanup_service.dart';
+import '../core/utils.dart';
+import 'adminhome.dart';
+import 'sidebar.dart';
+import 'userdetails.dart';
+import 'profile.dart';
+import 'feedback.dart';
+
+class AdminCategoryPage extends StatefulWidget {
+  final Function(Locale)? onLanguageChanged;
+  final Locale? currentLocale;
+
+  const AdminCategoryPage({
+    super.key,
+    this.onLanguageChanged,
+    this.currentLocale,
+  });
+
+  @override
+  State<AdminCategoryPage> createState() => _AdminCategoryPageState();
+}
+
+class _AdminCategoryPageState extends State<AdminCategoryPage> {
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final DatabaseReference _categoriesRef = FirebaseDatabase.instance
+      .ref()
+      .child('categories');
+
+  @override
+  void initState() {
+    super.initState();
+    _seedCategoriesIfEmpty();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currentLocale = widget.currentLocale ?? const Locale('en');
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    return Scaffold(
+      key: _scaffoldKey,
+      drawer: AdminSidebar(
+        adminName: 'Admin',
+        onHome: _goHome,
+        onCategory: () => Navigator.pop(context),
+        onUserDetails:
+            () => _openPage(
+              AdminUserDetailsPage(
+                onLanguageChanged: widget.onLanguageChanged,
+                currentLocale: currentLocale,
+              ),
+            ),
+        onFeedback:
+            () => _openPage(
+              AdminFeedbackPage(
+                onLanguageChanged: widget.onLanguageChanged,
+                currentLocale: currentLocale,
+              ),
+            ),
+        onSettings:
+            () => _openPage(
+              AdminProfilePage(
+                onLanguageChanged: widget.onLanguageChanged,
+                currentLocale: currentLocale,
+              ),
+            ),
+        onLogout: _logout,
+      ),
+      appBar: AppBar(
+        title: Text(
+          localizations.categoryPage,
+          style: TextStyle(
+            color:
+                Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : AppColors.textDark,
+          ),
+        ),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        elevation: 0,
+        centerTitle: true,
+        leading: IconButton(
+          icon: Icon(
+            Icons.menu,
+            color:
+                Theme.of(context).brightness == Brightness.dark
+                    ? Colors.white
+                    : AppColors.textDark,
+          ),
+          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+        ),
+      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: AppLayout.pagePadding,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 4),
+              Center(
+                child: ElevatedButton.icon(
+                  onPressed: () => _showAddDialog(),
+                  icon: const Icon(
+                    Icons.add,
+                    size: 16,
+                    color: AppColors.textDark,
+                  ),
+                  label: Text(
+                    localizations.addNewCategory,
+                    style: const TextStyle(color: AppColors.textDark),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFE6E6E6),
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 6,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              StreamBuilder<DatabaseEvent>(
+                stream: _categoriesRef.onValue,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const IosStyleLoading();
+                  }
+                  final items = _parseCategories(snapshot.data?.snapshot.value);
+                  if (items.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: Text(
+                          localizations.noCategories,
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  return Column(
+                    children: items.map(_buildCategoryCard).toList(),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryCard(_CategoryItem item) {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.symmetric(
+        horizontal: AppLayout.pagePaddingH + 2,
+        vertical: AppLayout.pagePaddingV + 2,
+      ),
+      decoration: BoxDecoration(
+        color: item.color,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(item.icon, color: item.iconColor, size: 28),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.subtitle,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: item.badgeColor,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${item.billsCount} ${localizations.bills}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      color: AppColors.backgroundWhite,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Row(
+            children: [
+              _buildActionIcon(
+                icon: Icons.download,
+                color: const Color(0xFF5DA7FF),
+                onTap: () => _downloadCategory(item),
+              ),
+              const SizedBox(width: 6),
+              _buildActionIcon(
+                icon: Icons.edit,
+                color: const Color(0xFF6B7BFF),
+                onTap: () => _showUpdateDialog(item),
+              ),
+              const SizedBox(width: 6),
+              _buildActionIcon(
+                icon: Icons.delete,
+                color: const Color(0xFFE44B4B),
+                onTap: () => _confirmDelete(item),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionIcon({
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Icon(icon, color: Colors.white, size: 14),
+      ),
+    );
+  }
+
+  void _downloadCategory(_CategoryItem item) {
+    AppSnackBar.showSuccess(
+      context,
+      'Downloading ${item.title} bills...',
+      duration: const Duration(seconds: 1),
+    );
+  }
+
+  void _goHome() {
+    final currentLocale = widget.currentLocale ?? const Locale('en');
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => AdminHome(
+              onLanguageChanged: widget.onLanguageChanged,
+              currentLocale: currentLocale,
+            ),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _openPage(Widget page) {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => page));
+  }
+
+  Future<void> _logout() async {
+    await AccountActions.showLogoutChoiceAndExecute(context);
+  }
+
+  void _showAddDialog() {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final fallback = CategoryRtdbStyle.fallbackForName('');
+    _showCategoryEditorDialog(
+      title: localizations.addCategory,
+      primaryLabel: localizations.add,
+      primaryColor: const Color(0xFF4CD964),
+      initialName: '',
+      initialDescription: '',
+      initialColor: fallback.cardColor,
+      initialIcon: fallback.icon,
+      onSubmit: (name, description, colorArgb, iconCodePoint) {
+        if (name.trim().isEmpty) return;
+        _categoriesRef.push().set({
+          'name': name.trim(),
+          'description':
+              description.trim().isEmpty ? '' : description.trim(),
+          'billsCount': 0,
+          'colorArgb': colorArgb,
+          'iconCodePoint': iconCodePoint,
+        });
+      },
+    );
+  }
+
+  void _showUpdateDialog(_CategoryItem item) {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    _showCategoryEditorDialog(
+      title: localizations.updateCategory,
+      primaryLabel: localizations.update,
+      primaryColor: const Color(0xFF4CD964),
+      initialName: item.title,
+      initialDescription: item.subtitle,
+      initialColor: item.color,
+      initialIcon: item.icon,
+      onSubmit: (name, description, colorArgb, iconCodePoint) {
+        if (name.trim().isEmpty) return;
+        _categoriesRef.child(item.id).update({
+          'name': name.trim(),
+          'description':
+              description.trim().isEmpty ? item.subtitle : description.trim(),
+          'billsCount': item.billsCount,
+          'colorArgb': colorArgb,
+          'iconCodePoint': iconCodePoint,
+        });
+      },
+    );
+  }
+
+  void _confirmDelete(_CategoryItem item) {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder:
+          (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            title: Text(localizations.deleteCategory),
+            content: Text(
+              '${localizations.delete} "${item.title}"?\n\n'
+              '${localizations.deleteCategoryCascadeBills}',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(localizations.cancel),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _deleteCategoryAndBills(item);
+                },
+                child: Text(
+                  localizations.delete,
+                  style: const TextStyle(color: Color(0xFFE44B4B)),
+                ),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _deleteCategoryAndBills(_CategoryItem item) async {
+    LoadingOverlay.show(context);
+    try {
+      await AdminBillCleanupService.deleteAllBillsForCategoryName(item.title);
+      await _categoriesRef.child(item.id).remove();
+      if (!mounted) return;
+      final loc =
+          AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+      AppSnackBar.showSuccess(
+        context,
+        loc.categoryAndRelatedBillsRemoved,
+        duration: const Duration(seconds: 2),
+      );
+    } catch (_) {
+      if (mounted) {
+        AppSnackBar.showError(
+          context,
+          AppLocalizations.of(context)?.billProcessingError ??
+              'Could not complete delete.',
+        );
+      }
+    } finally {
+      if (mounted) LoadingOverlay.hide();
+    }
+  }
+
+  void _showCategoryEditorDialog({
+    required String title,
+    required String primaryLabel,
+    required Color primaryColor,
+    required String initialName,
+    required String initialDescription,
+    required Color initialColor,
+    required IconData initialIcon,
+    required void Function(
+      String name,
+      String description,
+      int colorArgb,
+      int iconCodePoint,
+    )
+    onSubmit,
+  }) {
+    final loc =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.2),
+      builder:
+          (dialogContext) => _CategoryEditorDialog(
+            title: title,
+            primaryLabel: primaryLabel,
+            primaryColor: primaryColor,
+            initialName: initialName,
+            initialDescription: initialDescription,
+            initialColor: initialColor,
+            initialIcon: initialIcon,
+            localizations: loc,
+            onSubmit: onSubmit,
+          ),
+    );
+  }
+
+  Future<void> _seedCategoriesIfEmpty() async {
+    final snapshot = await _categoriesRef.get();
+    if (snapshot.exists) return;
+    await _categoriesRef.push().set({
+      'name': 'Electricity',
+      'description': 'Electricity Bills and Invoices',
+      'billsCount': 0,
+      'colorArgb': colorToArgb(const Color(0xFFFFA25B)),
+      'iconCodePoint': Icons.flash_on.codePoint,
+    });
+    await _categoriesRef.push().set({
+      'name': 'Water',
+      'description': 'Water Bills and Invoices',
+      'billsCount': 0,
+      'colorArgb': colorToArgb(const Color(0xFF63B0FF)),
+      'iconCodePoint': Icons.water_drop.codePoint,
+    });
+  }
+
+  List<_CategoryItem> _parseCategories(Object? value) {
+    if (value == null) return [];
+    final data = value as Map<dynamic, dynamic>;
+    final rawItems =
+        data.entries.map((entry) {
+          final raw = entry.value as Map<dynamic, dynamic>;
+          return _RawCategory(
+            id: entry.key.toString(),
+            name: (raw['name'] ?? '').toString(),
+            description: (raw['description'] ?? '').toString(),
+            billsCount: (raw['billsCount'] as num?)?.toInt() ?? 0,
+            raw: raw,
+          );
+        }).toList();
+    return rawItems.map((raw) {
+      final style = CategoryRtdbStyle.fromMap(raw.raw, raw.name);
+      return _CategoryItem(
+        id: raw.id,
+        title: raw.name,
+        subtitle: raw.description,
+        billsCount: raw.billsCount,
+        color: style.cardColor,
+        iconColor: style.iconTint,
+        badgeColor: style.badgeColor,
+        icon: style.icon,
+      );
+    }).toList();
+  }
+}
+
+class _CategoryItem {
+  final String id;
+  final String title;
+  final String subtitle;
+  final int billsCount;
+  final Color color;
+  final Color iconColor;
+  final Color badgeColor;
+  final IconData icon;
+
+  const _CategoryItem({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.billsCount,
+    required this.color,
+    required this.iconColor,
+    required this.badgeColor,
+    required this.icon,
+  });
+}
+class _RawCategory {
+  final String id;
+  final String name;
+  final String description;
+  final int billsCount;
+  final Map<dynamic, dynamic> raw;
+
+  const _RawCategory({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.billsCount,
+    required this.raw,
+  });
+}
+
+/// Preset colors + icons for admin category editor (stored as [colorArgb] / [iconCodePoint] in RTDB).
+const List<Color> _kCategoryPalette = [
+  Color(0xFFFFA25B),
+  Color(0xFF63B0FF),
+  Color(0xFF61F26B),
+  Color(0xFFB39DDB),
+  Color(0xFFFF8A65),
+  Color(0xFF4FC3F7),
+  Color(0xFFFFD54F),
+  Color(0xFF90A4AE),
+  Color(0xFFFF5252),
+  Color(0xFF26A69A),
+  Color(0xFF5C6BC0),
+  Color(0xFFFFB74D),
+];
+
+const List<IconData> _kCategoryIconChoices = [
+  Icons.flash_on,
+  Icons.water_drop,
+  Icons.wifi,
+  Icons.receipt_long,
+  Icons.local_fire_department,
+  Icons.bolt,
+  Icons.home,
+  Icons.phone_android,
+  Icons.electric_bolt,
+  Icons.shower,
+  Icons.router,
+  Icons.savings,
+  Icons.eco,
+  Icons.ac_unit,
+  Icons.lightbulb,
+];
+
+class _CategoryEditorDialog extends StatefulWidget {
+  final String title;
+  final String primaryLabel;
+  final Color primaryColor;
+  final String initialName;
+  final String initialDescription;
+  final Color initialColor;
+  final IconData initialIcon;
+  final AppLocalizations localizations;
+  final void Function(
+    String name,
+    String description,
+    int colorArgb,
+    int iconCodePoint,
+  )
+  onSubmit;
+
+  const _CategoryEditorDialog({
+    required this.title,
+    required this.primaryLabel,
+    required this.primaryColor,
+    required this.initialName,
+    required this.initialDescription,
+    required this.initialColor,
+    required this.initialIcon,
+    required this.localizations,
+    required this.onSubmit,
+  });
+
+  @override
+  State<_CategoryEditorDialog> createState() => _CategoryEditorDialogState();
+}
+
+class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
+  late final TextEditingController _nameController;
+  late final TextEditingController _descController;
+  late Color _selectedColor;
+  late IconData _selectedIcon;
+  late List<IconData> _iconChoices;
+  late List<Color> _colorChoices;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.initialName);
+    _descController = TextEditingController(text: widget.initialDescription);
+    _selectedColor = widget.initialColor;
+    _selectedIcon = widget.initialIcon;
+    _iconChoices = List<IconData>.from(_kCategoryIconChoices);
+    if (!_iconChoices.any((i) => i.codePoint == _selectedIcon.codePoint)) {
+      _iconChoices.insert(0, _selectedIcon);
+    }
+    _colorChoices = List<Color>.from(_kCategoryPalette);
+    if (!_colorChoices.any((c) => c == _selectedColor)) {
+      _colorChoices.insert(0, _selectedColor);
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _descController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = widget.localizations;
+    return Center(
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          width: 320,
+          constraints: const BoxConstraints(maxHeight: 520),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFECECEC),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  widget.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildDialogField(
+                  controller: _nameController,
+                  icon: Icons.category,
+                  hint: loc.categoryName,
+                ),
+                const SizedBox(height: 10),
+                _buildDialogField(
+                  controller: _descController,
+                  icon: Icons.description,
+                  hint: loc.descriptionOptional,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  loc.categoryColor,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children:
+                      _colorChoices.map((c) {
+                        final selected = c == _selectedColor;
+                        return InkWell(
+                          onTap: () => setState(() => _selectedColor = c),
+                          borderRadius: BorderRadius.circular(20),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: c,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color:
+                                    selected
+                                        ? AppColors.textDark
+                                        : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  loc.categoryIcon,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children:
+                      _iconChoices.map((icon) {
+                        final selected = icon.codePoint == _selectedIcon.codePoint;
+                        return InkWell(
+                          onTap: () => setState(() => _selectedIcon = icon),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color:
+                                  selected
+                                      ? const Color(0xFFD1D1D1)
+                                      : const Color(0xFFE0E0E0),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color:
+                                    selected
+                                        ? AppColors.primary
+                                        : Colors.transparent,
+                                width: 2,
+                              ),
+                            ),
+                            child: Icon(icon, size: 22, color: AppColors.textDark),
+                          ),
+                        );
+                      }).toList(),
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    _buildDialogButton(
+                      label: loc.cancel,
+                      color: const Color(0xFFE44B4B),
+                      onTap: () => Navigator.pop(context),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildDialogButton(
+                      label: widget.primaryLabel,
+                      color: widget.primaryColor,
+                      onTap: () {
+                        Navigator.pop(context);
+                        widget.onSubmit(
+                          _nameController.text,
+                          _descController.text,
+                          colorToArgb(_selectedColor),
+                          _selectedIcon.codePoint,
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogField({
+    required TextEditingController controller,
+    required IconData icon,
+    required String hint,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD1D1D1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: TextField(
+        controller: controller,
+        style: const TextStyle(fontSize: 12),
+        decoration: InputDecoration(
+          icon: Icon(icon, size: 16, color: AppColors.textDark),
+          hintText: hint,
+          border: InputBorder.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDialogButton({
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.black,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+

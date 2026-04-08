@@ -71,19 +71,26 @@ class RegistrationValidators {
 void main() {
   group('RegistrationValidators - Full Name', () {
     test('should return error if empty', () {
-      expect(RegistrationValidators.validateFullName(''), 'Full name is required.');
+      expect(
+        RegistrationValidators.validateFullName(''),
+        'Full name is required.',
+      );
       print('Full Name empty test passed');
     });
 
     test('should return error if too long', () {
-      expect(RegistrationValidators.validateFullName('A' * 31),
-          'Full name must not exceed 30 characters.');
+      expect(
+        RegistrationValidators.validateFullName('A' * 31),
+        'Full name must not exceed 30 characters.',
+      );
       print('Full Name too long test passed');
     });
 
     test('should return error if contains invalid chars', () {
-      expect(RegistrationValidators.validateFullName('John123'),
-          'Full name must contain only letters and spaces.');
+      expect(
+        RegistrationValidators.validateFullName('John123'),
+        'Full name must contain only letters and spaces.',
+      );
       print('Full Name invalid chars test passed');
     });
 
@@ -100,8 +107,10 @@ void main() {
     });
 
     test('should return error if invalid', () {
-      expect(RegistrationValidators.validateEmail('not-an-email'),
-          'Please enter a valid email address.');
+      expect(
+        RegistrationValidators.validateEmail('not-an-email'),
+        'Please enter a valid email address.',
+      );
       print('Email invalid test passed');
     });
 
@@ -113,13 +122,18 @@ void main() {
 
   group('RegistrationValidators - Phone', () {
     test('should return error if empty', () {
-      expect(RegistrationValidators.validatePhone(''), 'Phone number is required.');
+      expect(
+        RegistrationValidators.validatePhone(''),
+        'Phone number is required.',
+      );
       print('Phone empty test passed');
     });
 
     test('should return error if not Omani format', () {
-      expect(RegistrationValidators.validatePhone('61234567'),
-          'Phone number must be 8 digits and start with 7 or 9 (Oman).');
+      expect(
+        RegistrationValidators.validatePhone('61234567'),
+        'Phone number must be 8 digits and start with 7 or 9 (Oman).',
+      );
       print('Phone invalid format test passed');
     });
 
@@ -131,32 +145,42 @@ void main() {
 
   group('RegistrationValidators - Password', () {
     test('should return error if too short', () {
-      expect(RegistrationValidators.validatePassword('Ab1!'),
-          'Password must be between 8 and 16 characters.');
+      expect(
+        RegistrationValidators.validatePassword('Ab1!'),
+        'Password must be between 8 and 16 characters.',
+      );
       print('Password too short test passed');
     });
 
     test('should return error if missing uppercase', () {
-      expect(RegistrationValidators.validatePassword('password1!'),
-          'Password must contain at least one uppercase letter.');
+      expect(
+        RegistrationValidators.validatePassword('password1!'),
+        'Password must contain at least one uppercase letter.',
+      );
       print('Password missing uppercase test passed');
     });
 
     test('should return error if missing lowercase', () {
-      expect(RegistrationValidators.validatePassword('PASSWORD1!'),
-          'Password must contain at least one lowercase letter.');
+      expect(
+        RegistrationValidators.validatePassword('PASSWORD1!'),
+        'Password must contain at least one lowercase letter.',
+      );
       print('Password missing lowercase test passed');
     });
 
     test('should return error if missing number', () {
-      expect(RegistrationValidators.validatePassword('Password!'),
-          'Password must contain at least one number.');
+      expect(
+        RegistrationValidators.validatePassword('Password!'),
+        'Password must contain at least one number.',
+      );
       print('Password missing number test passed');
     });
 
     test('should return error if missing special char', () {
-      expect(RegistrationValidators.validatePassword('Password1'),
-          'Password must contain at least one special character.');
+      expect(
+        RegistrationValidators.validatePassword('Password1'),
+        'Password must contain at least one special character.',
+      );
       print('Password missing special char test passed');
     });
 
@@ -168,20 +192,32 @@ void main() {
 
   group('RegistrationValidators - Confirm Password', () {
     test('should return error if empty', () {
-      expect(RegistrationValidators.validateConfirmPassword('Password1!', ''),
-          'Please confirm your password.');
+      expect(
+        RegistrationValidators.validateConfirmPassword('Password1!', ''),
+        'Please confirm your password.',
+      );
       print('Confirm Password empty test passed');
     });
 
     test('should return error if not matching', () {
-      expect(RegistrationValidators.validateConfirmPassword('Password1!', 'Password2!'),
-          'Passwords do not match.');
+      expect(
+        RegistrationValidators.validateConfirmPassword(
+          'Password1!',
+          'Password2!',
+        ),
+        'Passwords do not match.',
+      );
       print('Confirm Password not matching test passed');
     });
 
     test('should return null if matching', () {
-      expect(RegistrationValidators.validateConfirmPassword('Password1!', 'Password1!'),
-          null);
+      expect(
+        RegistrationValidators.validateConfirmPassword(
+          'Password1!',
+          'Password1!',
+        ),
+        null,
+      );
       print('Confirm Password matching test passed');
     });
   });

@@ -8,7 +8,8 @@ plugins {
 
 android {
     namespace = "com.example.smart_assistant"
-    compileSdk = flutter.compileSdkVersion
+    // Required by pdf_render_maintained (Android SDK 36+).
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {
