@@ -10,7 +10,9 @@ import '../models/bill_analysis.dart';
 import '../models/bill_summary.dart';
 import '../services/bill_analysis_service.dart';
 import '../services/category_policy_service.dart';
-import '../core/utils.dart';
+import '../utils/app_snackbar.dart';
+import '../utils/loading_overlay.dart';
+import '../utils/bill_date_utils.dart';
 
 class BillReviewPage extends StatefulWidget {
   final BillAnalysisResult analysis;
@@ -384,6 +386,13 @@ class _BillReviewPageState extends State<BillReviewPage> {
     final textColor = isDark ? Colors.white : AppColors.textDark;
     final hintColor =
         isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
+    final lowConfidenceCount =
+        [
+          widget.analysis.totalAmountConfidence,
+          widget.analysis.consumptionConfidence,
+          widget.analysis.invoiceConfidence,
+          widget.analysis.accountConfidence,
+        ].where((c) => c != null && c < 0.6).length;
 
     InputDecoration deco(
       String label, {
@@ -403,12 +412,46 @@ class _BillReviewPageState extends State<BillReviewPage> {
     }
 
     final consumptionSuffix = _isWater ? loc.chartUnitWater : loc.chartUnitKwh;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    Widget confidenceBadge(double? c) {
+      if (c == null) return const SizedBox.shrink();
+      late final Color color;
+      late final String label;
+      if (c >= 0.85) {
+        color = Colors.green;
+        label = isArabic ? 'ثقة عالية' : 'High confidence';
+      } else if (c >= 0.6) {
+        color = Colors.orange;
+        label = isArabic ? 'ثقة متوسطة' : 'Medium confidence';
+      } else {
+        color = Colors.red;
+        label = isArabic ? 'ثقة منخفضة' : 'Low confidence';
+      }
+      return Padding(
+        padding: const EdgeInsets.only(top: 6, left: 2, right: 2),
+        child: Row(
+          children: [
+            Icon(Icons.analytics_outlined, size: 14, color: color),
+            const SizedBox(width: 6),
+            Text(
+              '$label (${(c * 100).round()}%)',
+              style: TextStyle(color: color, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: Text(loc.billReviewTitle),
+        title: Text(
+          loc.billReviewTitle,
+          style: TextStyle(color: textColor),
+        ),
         backgroundColor: background,
+        foregroundColor: textColor,
         elevation: 0,
         centerTitle: true,
         leading: BackButton(
@@ -437,6 +480,56 @@ class _BillReviewPageState extends State<BillReviewPage> {
                   loc.billReviewChartHint,
                   style: TextStyle(color: hintColor, fontSize: 11, height: 1.3),
                 ),
+                if (lowConfidenceCount > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          isDark
+                              ? const Color(0xFF3B2A12)
+                              : const Color(0xFFFFF3E0),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color:
+                            isDark
+                                ? const Color(0xFFFFB74D)
+                                : const Color(0xFFFFCC80),
+                      ),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          size: 16,
+                          color: Color(0xFFE65100),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            Localizations.localeOf(context).languageCode == 'ar'
+                                ? 'تم رصد $lowConfidenceCount حقول بثقة منخفضة. يُفضّل مراجعتها قبل الحفظ.'
+                                : '$lowConfidenceCount low-confidence fields were detected. Please review them before saving.',
+                            style: TextStyle(
+                              color:
+                                  isDark
+                                      ? const Color(0xFFFFCC80)
+                                      : const Color(0xFFE65100),
+                              fontSize: 12,
+                              height: 1.3,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -517,6 +610,7 @@ class _BillReviewPageState extends State<BillReviewPage> {
                       ),
                       style: TextStyle(color: textColor),
                     ),
+                    confidenceBadge(widget.analysis.totalAmountConfidence),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _currentMonthController,
@@ -557,6 +651,7 @@ class _BillReviewPageState extends State<BillReviewPage> {
                       ),
                       style: TextStyle(color: textColor),
                     ),
+                    confidenceBadge(widget.analysis.consumptionConfidence),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _unitController,
@@ -592,6 +687,7 @@ class _BillReviewPageState extends State<BillReviewPage> {
                       decoration: deco(loc.invoiceNumberTitle),
                       style: TextStyle(color: textColor),
                     ),
+                    confidenceBadge(widget.analysis.invoiceConfidence),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _accountController,
@@ -600,6 +696,7 @@ class _BillReviewPageState extends State<BillReviewPage> {
                       decoration: deco(loc.accountNumber),
                       style: TextStyle(color: textColor),
                     ),
+                    confidenceBadge(widget.analysis.accountConfidence),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _billingMonthTextController,

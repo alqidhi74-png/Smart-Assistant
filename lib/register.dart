@@ -2,11 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:email_validator/email_validator.dart';
 import 'data/database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'utils/firebase_auth_user_message.dart';
 import 'login.dart';
 import 'constants/app_layout.dart';
 import 'constants/colors.dart';
 import 'services/multi_account_service.dart';
-import 'core/utils.dart';
+import 'utils/app_snackbar.dart';
 import 'constants/language.dart';
 
 class Registration extends StatefulWidget {
@@ -591,20 +592,15 @@ class RegistrationState extends State<Registration> {
         if (!mounted) return;
         Navigator.of(context).popUntil((route) => route.isFirst);
       } on FirebaseAuthException catch (e) {
-        String message;
-        if (e.code == 'email-already-in-use') {
-          message = localizations.emailAlreadyRegistered;
-        } else if (e.code == 'weak-password') {
-          message = localizations.passwordWeak;
-        } else if (e.code == 'network-request-failed') {
-          message = localizations.networkError;
-        } else {
-          message = localizations.registerError;
-        }
-
         if (!mounted) return;
-
-        AppSnackBar.showError(context, message);
+        AppSnackBar.showError(
+          context,
+          firebaseAuthUserMessage(
+            e,
+            localizations,
+            context: FirebaseAuthMessageContext.register,
+          ),
+        );
       } catch (e) {
         if (!mounted) return;
 

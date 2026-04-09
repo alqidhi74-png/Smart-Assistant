@@ -8,7 +8,8 @@ import 'register.dart';
 import 'constants/app_layout.dart';
 import 'constants/colors.dart';
 import 'constants/language.dart';
-import 'core/utils.dart';
+import 'utils/app_snackbar.dart';
+import 'utils/firebase_auth_user_message.dart';
 import 'services/multi_account_service.dart';
 
 class Login extends StatefulWidget {
@@ -575,38 +576,18 @@ class LoginState extends State<Login> {
           AppSnackBar.showError(context, localizations.userDataNotFound);
         }
       } on FirebaseAuthException catch (e) {
-        String errorMessage;
         if (!mounted) return;
         final localizations =
             AppLocalizations.of(context) ??
             AppLocalizations(const Locale('en'));
-
-        switch (e.code) {
-          case 'user-not-found':
-          case 'invalid-credential':
-            errorMessage = localizations.invalidEmailOrPassword;
-            break;
-          case 'wrong-password':
-            errorMessage = localizations.invalidEmailOrPassword;
-            break;
-          case 'invalid-email':
-            errorMessage = localizations.invalidEmailOrPassword;
-            break;
-          case 'user-disabled':
-            errorMessage = localizations.userDisabled;
-            break;
-          case 'too-many-requests':
-            errorMessage = localizations.tooManyRequests;
-            break;
-          case 'network-request-failed':
-          case 'network-error':
-            errorMessage = localizations.networkError;
-            break;
-          default:
-            errorMessage = localizations.invalidEmailOrPassword;
-        }
-
-        AppSnackBar.showError(context, errorMessage);
+        AppSnackBar.showError(
+          context,
+          firebaseAuthUserMessage(
+            e,
+            localizations,
+            context: FirebaseAuthMessageContext.login,
+          ),
+        );
       } catch (e) {
         if (!mounted) return;
         final localizations =

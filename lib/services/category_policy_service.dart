@@ -1,6 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 
-import '../core/utils.dart';
+import '../utils/bill_type_utils.dart';
 
 /// Which utility kinds the admin currently exposes under [categories] (`electricity` / `water`).
 abstract final class CategoryPolicyService {

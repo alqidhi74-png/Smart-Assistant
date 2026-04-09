@@ -7,7 +7,8 @@ import 'constants/language.dart';
 import 'landing_page.dart';
 import 'services/multi_account_service.dart';
 import 'user/navbar.dart';
-import 'core/utils.dart';
+import 'utils/app_error_reporter.dart';
+import 'utils/loading_overlay.dart';
 
 /// Matches how [Database] stores `admin` ('Y' / 'N') and tolerates bool / casing.
 bool _isAdminFromRtdb(Map<dynamic, dynamic> data) {

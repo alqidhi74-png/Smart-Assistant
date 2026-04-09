@@ -3,7 +3,8 @@ import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../models/bill_summary.dart';
-import '../core/utils.dart';
+import '../utils/bill_type_utils.dart';
+import '../utils/omr_format.dart';
 
 class BillDetailsPage extends StatelessWidget {
   final BillSummary bill;
@@ -36,7 +37,10 @@ class BillDetailsPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: Text(localizations.analysis),
+        title: Text(
+          localizations.analysis,
+          style: TextStyle(color: textColor),
+        ),
         backgroundColor: background,
         elevation: 0,
         foregroundColor: textColor,
@@ -162,24 +166,46 @@ class _DetailCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 148,
-            child: Text(
-              title,
-              style: TextStyle(color: mutedText, fontWeight: FontWeight.w600),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(fontWeight: FontWeight.w600, color: valueColor),
-              maxLines: 8,
-            ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 360) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(color: mutedText, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  value,
+                  style: TextStyle(fontWeight: FontWeight.w600, color: valueColor),
+                  maxLines: 8,
+                ),
+              ],
+            );
+          }
+          final labelWidth = (constraints.maxWidth * 0.38).clamp(110.0, 180.0);
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: labelWidth,
+                child: Text(
+                  title,
+                  style: TextStyle(color: mutedText, fontWeight: FontWeight.w600),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  value,
+                  style: TextStyle(fontWeight: FontWeight.w600, color: valueColor),
+                  maxLines: 8,
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }

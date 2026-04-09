@@ -6,11 +6,14 @@ import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../changepassword.dart';
-import '../core/utils.dart';
+import '../utils/account_actions.dart';
+import '../utils/app_language_sheet.dart';
 import 'adminhome.dart';
 import '../providers/theme_provider.dart';
 import '../user/about_app.dart';
+import '../user/profile.dart';
 import '../user/privacy_policy.dart';
+import '../widgets/settings_page_widgets.dart';
 import 'sidebar.dart';
 import 'category.dart';
 import 'userdetails.dart';
@@ -67,22 +70,23 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
   @override
   Widget build(BuildContext context) {
     final activeLocale = widget.currentLocale ?? const Locale('en');
+    final currentLocale = Localizations.localeOf(context);
     final localizations =
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final backgroundColor =
-        isDark ? const Color(0xFF121212) : const Color(0xFFF3F3F3);
-    final cardColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final textColor = isDark ? Colors.white : AppColors.textDark;
-    final secondaryTextColor =
-        isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
-    final dividerColor =
+    final background = Theme.of(context).scaffoldBackgroundColor;
+    final cardColor =
+        isDark ? const Color(0xFF1E1E1E) : AppColors.backgroundWhite;
+    final borderColor =
         isDark ? const Color(0xFF2C2C2C) : AppColors.borderLight;
+    final primaryText = isDark ? Colors.white : AppColors.textDark;
+    final secondaryText =
+        isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
 
     return Scaffold(
       key: _scaffoldKey,
       drawer: AdminSidebar(
-        adminName: 'Admin',
+        adminName: _fullName,
         onHome: _goHome,
         onCategory:
             () => _openPage(
@@ -109,15 +113,24 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         onLogout: _logout,
       ),
       appBar: AppBar(
-        title: Text(localizations.settings, style: TextStyle(color: textColor)),
-        backgroundColor: backgroundColor,
+        title: Text(
+          localizations.settings,
+          style: TextStyle(color: primaryText),
+        ),
+        backgroundColor: background,
+        foregroundColor: primaryText,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: textColor),
+          icon: Icon(Icons.arrow_back, color: primaryText),
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          IconButton(
+            tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+            icon: Icon(Icons.menu, color: primaryText),
+            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          ),
           IconButton(
             tooltip: localizations.accountsTitle,
             onPressed: _openAccountMenu,
@@ -129,380 +142,199 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
           ),
         ],
       ),
-      backgroundColor: backgroundColor,
-      body: ListView(
-        padding: AppLayout.pagePadding,
-        children: [
-          _buildProfileCard(cardColor, textColor, secondaryTextColor),
-          const SizedBox(height: 12),
-          _buildSectionTitle(localizations.account, textColor),
-          _buildSectionCard(
-            cardColor: cardColor,
+      backgroundColor: background,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: AppLayout.pagePadding,
+          child: Column(
             children: [
-              _buildTile(
-                icon: Icons.person,
-                label: localizations.profile,
-                onTap: _showEditProfileDialog,
-                textColor: textColor,
-              ),
-              _buildDivider(dividerColor),
-              _buildTile(
-                icon: Icons.lock_outline,
-                label: localizations.changePassword,
-                onTap: () => _goToChangePassword(activeLocale),
-                textColor: textColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildSectionTitle(localizations.application, textColor),
-          _buildSectionCard(
-            cardColor: cardColor,
-            children: [
-              _buildLanguageRow(textColor, secondaryTextColor),
-              _buildDivider(dividerColor),
-              _buildDarkModeRow(textColor),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _buildSectionTitle(localizations.other, textColor),
-          _buildSectionCard(
-            cardColor: cardColor,
-            children: [
-              _buildTile(
-                icon: Icons.info_outline,
-                label: localizations.aboutApp,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (context) => const AboutAppPage(),
-                    ),
-                  );
-                },
-                textColor: textColor,
-              ),
-              _buildDivider(dividerColor),
-              _buildTile(
-                icon: Icons.privacy_tip_outlined,
-                label: localizations.privacyPolicy,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute<void>(
-                      builder: (context) => const PrivacyPolicyPage(),
-                    ),
-                  );
-                },
-                textColor: textColor,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfileCard(
-    Color cardColor,
-    Color textColor,
-    Color secondaryTextColor,
-  ) {
-    return Container(
-      padding: EdgeInsets.all(AppLayout.pagePaddingH + 6),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 22,
-            backgroundColor:
-                Theme.of(context).brightness == Brightness.dark
-                    ? const Color(0xFF2A2A2A)
-                    : AppColors.backgroundLight,
-            child: Icon(Icons.person, color: textColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _fullName,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-                if (_email.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    _email,
-                    style: TextStyle(fontSize: 12, color: secondaryTextColor),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title, Color textColor) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, bottom: 6),
-      child: Text(
-        title,
-        style: TextStyle(fontWeight: FontWeight.bold, color: textColor),
-      ),
-    );
-  }
-
-  Widget _buildSectionCard({
-    required List<Widget> children,
-    required Color cardColor,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _buildTile({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    required Color textColor,
-  }) {
-    return ListTile(
-      leading: Icon(icon, color: textColor),
-      title: Text(
-        label,
-        style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
-      ),
-      onTap: onTap,
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -2),
-    );
-  }
-
-  Widget _buildDivider(Color dividerColor) {
-    return Divider(height: 1, color: dividerColor);
-  }
-
-  Widget _buildLanguageRow(Color textColor, Color secondaryTextColor) {
-    final localizations =
-        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-    final effective = normalizeSupportedLocale(Localizations.localeOf(context));
-    return ListTile(
-      leading: Icon(Icons.public, color: textColor),
-      title: Text(
-        localizations.language,
-        style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            languageDisplayName(effective),
-            style: TextStyle(color: secondaryTextColor),
-          ),
-          const SizedBox(width: 6),
-          Icon(Icons.keyboard_arrow_down, color: secondaryTextColor),
-        ],
-      ),
-      onTap:
-          () => showAppLanguageSheet(
-            context,
-            onLanguageChanged: widget.onLanguageChanged,
-          ),
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -2),
-    );
-  }
-
-  Widget _buildDarkModeRow(Color textColor) {
-    final localizations =
-        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-    final themeNotifier = Provider.of<ThemeNotifier>(context);
-    return SwitchListTile(
-      title: Text(
-        localizations.darkMode,
-        style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
-      ),
-      secondary: Icon(Icons.dark_mode, color: textColor),
-      value: themeNotifier.isDarkMode,
-      onChanged: (value) => themeNotifier.setThemeMode(value),
-      dense: true,
-      visualDensity: const VisualDensity(vertical: -2),
-    );
-  }
-
-  void _showEditProfileDialog() {
-    final nameController = TextEditingController(text: _fullName);
-    final phoneController = TextEditingController(text: _phone);
-    final localizations =
-        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor =
-        isDark ? const Color(0xFF1E1E1E) : const Color(0xFFECECEC);
-    final textColor = isDark ? Colors.white : AppColors.textDark;
-
-    showDialog<void>(
-      context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.2),
-      builder:
-          (context) => Center(
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                width: 280,
-                padding: EdgeInsets.all(AppLayout.pagePaddingH + 6),
-                decoration: BoxDecoration(
-                  color: cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              SettingsPageCard(
+                backgroundColor: cardColor,
+                borderColor: borderColor,
+                child: Row(
                   children: [
-                    Text(
-                      localizations.editProfile,
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: textColor,
+                    CircleAvatar(
+                      backgroundColor: cardColor,
+                      child: Icon(Icons.person, color: AppColors.primary),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _fullName,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: primaryText,
+                            ),
+                          ),
+                          if (_email.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              _email,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: secondaryText,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    _buildInputField(
-                      controller: nameController,
-                      icon: Icons.person,
-                      hint: localizations.fullName,
-                      textColor: textColor,
-                      fillColor:
-                          isDark
-                              ? const Color(0xFF2A2A2A)
-                              : const Color(0xFFD1D1D1),
-                    ),
-                    const SizedBox(height: 10),
-                    _buildInputField(
-                      controller: phoneController,
-                      icon: Icons.phone,
-                      hint: localizations.phoneNumber,
-                      textColor: textColor,
-                      fillColor:
-                          isDark
-                              ? const Color(0xFF2A2A2A)
-                              : const Color(0xFFD1D1D1),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        _buildDialogButton(
-                          label: localizations.cancel,
-                          color:
-                              isDark
-                                  ? const Color(0xFF3A3A3A)
-                                  : const Color(0xFFDCDCDC),
-                          onTap: () => Navigator.pop(context),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildDialogButton(
-                          label: localizations.save,
-                          color: const Color(0xFF7BE27B),
-                          onTap: () async {
-                            Navigator.pop(context);
-                            await _saveProfile(
-                              nameController.text,
-                              phoneController.text,
-                            );
-                          },
-                        ),
-                      ],
                     ),
                   ],
                 ),
               ),
-            ),
+              const SizedBox(height: 8),
+              SettingsSectionCard(
+                title: localizations.account,
+                titleColor: secondaryText,
+                backgroundColor: cardColor,
+                borderColor: borderColor,
+                children: [
+                  SettingsNavTile(
+                    icon: Icons.person_outline,
+                    label: localizations.profile,
+                    iconColor: primaryText,
+                    textColor: primaryText,
+                    trailingColor: secondaryText,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder:
+                              (context) => ProfilePage(
+                                fullName: _fullName,
+                                phoneNumber: _phone,
+                              ),
+                        ),
+                      );
+                    },
+                  ),
+                  SettingsNavTile(
+                    icon: Icons.lock_outline,
+                    label: localizations.changePassword,
+                    iconColor: primaryText,
+                    textColor: primaryText,
+                    trailingColor: secondaryText,
+                    onTap: () => _goToChangePassword(activeLocale),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SettingsSectionCard(
+                title: localizations.application,
+                titleColor: secondaryText,
+                backgroundColor: cardColor,
+                borderColor: borderColor,
+                children: [
+                  SettingsNavTile(
+                    icon: Icons.language,
+                    label: localizations.language,
+                    iconColor: primaryText,
+                    textColor: primaryText,
+                    trailingColor: secondaryText,
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          languageDisplayName(currentLocale),
+                          style: TextStyle(color: secondaryText),
+                        ),
+                        const SizedBox(width: 6),
+                        Icon(Icons.keyboard_arrow_down, color: secondaryText),
+                      ],
+                    ),
+                    onTap: () {
+                      showAppLanguageSheet(
+                        context,
+                        onLanguageChanged: widget.onLanguageChanged,
+                      );
+                    },
+                  ),
+                  Consumer<ThemeNotifier>(
+                    builder: (context, themeNotifier, _) {
+                      return SettingsNavTile(
+                        icon: Icons.dark_mode_outlined,
+                        label: localizations.darkMode,
+                        iconColor: primaryText,
+                        textColor: primaryText,
+                        trailingColor: secondaryText,
+                        trailing: Switch(
+                          value: themeNotifier.isDarkMode,
+                          onChanged: (value) {
+                            themeNotifier.setThemeMode(value);
+                          },
+                        ),
+                        onTap: () {
+                          themeNotifier.toggleTheme();
+                        },
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              SettingsSectionCard(
+                title: localizations.other,
+                titleColor: secondaryText,
+                backgroundColor: cardColor,
+                borderColor: borderColor,
+                children: [
+                  SettingsNavTile(
+                    icon: Icons.info_outline,
+                    label: localizations.aboutApp,
+                    iconColor: primaryText,
+                    textColor: primaryText,
+                    trailingColor: secondaryText,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (context) => const AboutAppPage(),
+                        ),
+                      );
+                    },
+                  ),
+                  SettingsNavTile(
+                    icon: Icons.privacy_tip_outlined,
+                    label: localizations.privacyPolicy,
+                    iconColor: primaryText,
+                    textColor: primaryText,
+                    trailingColor: secondaryText,
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute<void>(
+                          builder: (context) => const PrivacyPolicyPage(),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: AppColors.textOnDark,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: _logout,
+                  icon: const Icon(Icons.logout),
+                  label: Text(localizations.logout),
+                ),
+              ),
+            ],
           ),
-    );
-  }
-
-  Widget _buildInputField({
-    required TextEditingController controller,
-    required IconData icon,
-    required String hint,
-    required Color textColor,
-    required Color fillColor,
-  }) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: AppLayout.pagePaddingH),
-      decoration: BoxDecoration(
-        color: fillColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: TextField(
-        controller: controller,
-        style: TextStyle(fontSize: 12, color: textColor),
-        decoration: InputDecoration(
-          icon: Icon(icon, size: 16, color: textColor),
-          hintText: hint,
-          border: InputBorder.none,
         ),
       ),
     );
-  }
-
-  Widget _buildDialogButton({
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: AppLayout.pagePaddingH,
-          vertical: 4,
-        ),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: const TextStyle(
-            color: Colors.black,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _saveProfile(String fullName, String phone) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-    await FirebaseDatabase.instance.ref().child('users/${user.uid}').update({
-      'fullName': fullName.trim(),
-      'phone': phone.trim(),
-    });
-    if (mounted) {
-      setState(() {
-        _fullName = fullName.trim().isEmpty ? _fullName : fullName.trim();
-        _phone = phone.trim();
-      });
-    }
   }
 
   void _goHome() {

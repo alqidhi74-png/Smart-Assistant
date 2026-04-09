@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'constants/app_layout.dart';
 import 'constants/colors.dart';
 import 'constants/language.dart';
-import 'core/utils.dart';
+import '../utils/app_snackbar.dart';
+import '../utils/firebase_auth_user_message.dart';
+import '../utils/loading_overlay.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -92,24 +94,15 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
         Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      switch (e.code) {
-        case 'wrong-password':
-        case 'invalid-credential':
-          errorMessage = localizations.currentPasswordIncorrect;
-          break;
-        case 'weak-password':
-          errorMessage = localizations.passwordWeak;
-          break;
-        case 'requires-recent-login':
-          errorMessage = localizations.requiresRecentLogin;
-          break;
-        default:
-          errorMessage = localizations.passwordChangeError;
-      }
-
       if (mounted) {
-        AppSnackBar.showError(context, errorMessage);
+        AppSnackBar.showError(
+          context,
+          firebaseAuthUserMessage(
+            e,
+            localizations,
+            context: FirebaseAuthMessageContext.changePassword,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {

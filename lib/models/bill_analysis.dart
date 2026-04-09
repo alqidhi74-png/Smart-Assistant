@@ -21,6 +21,10 @@ class BillAnalysisResult {
   final String? billingMonthKey;
   final double? currentMonthAmount;
   final int? consumptionDays;
+  final double? totalAmountConfidence;
+  final double? consumptionConfidence;
+  final double? accountConfidence;
+  final double? invoiceConfidence;
 
   const BillAnalysisResult({
     required this.rawText,
@@ -38,5 +42,9 @@ class BillAnalysisResult {
     this.billingMonthKey,
     this.currentMonthAmount,
     this.consumptionDays,
+    this.totalAmountConfidence,
+    this.consumptionConfidence,
+    this.accountConfidence,
+    this.invoiceConfidence,
   });
 }

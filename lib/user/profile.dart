@@ -7,7 +7,8 @@ import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../data/database.dart';
 import '../services/multi_account_service.dart';
-import '../core/utils.dart';
+import '../utils/app_snackbar.dart';
+import '../utils/loading_overlay.dart';
 
 class ProfilePage extends StatefulWidget {
   final String? fullName;
@@ -154,8 +155,12 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: Text(localizations.profile),
+        title: Text(
+          localizations.profile,
+          style: TextStyle(color: primaryText),
+        ),
         backgroundColor: background,
+        foregroundColor: primaryText,
         elevation: 0,
         centerTitle: true,
         leading: BackButton(color: primaryText),

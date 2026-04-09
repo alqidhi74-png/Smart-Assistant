@@ -2,11 +2,13 @@ import 'package:email_validator/email_validator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import 'core/utils.dart';
+import 'utils/loading_overlay.dart';
+import 'package:smart_assistant/utils/app_snackbar.dart';
 
 import 'constants/app_layout.dart';
 import 'constants/colors.dart';
 import 'constants/language.dart';
+import 'utils/firebase_auth_user_message.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -54,7 +56,14 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         });
       }
       if (!mounted) return;
-      AppSnackBar.showError(context, _authMessage(e, localizations));
+      AppSnackBar.showError(
+        context,
+        firebaseAuthUserMessage(
+          e,
+          localizations,
+          context: FirebaseAuthMessageContext.forgotPassword,
+        ),
+      );
     } catch (_) {
       if (mounted) {
         setState(() {
@@ -66,21 +75,6 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         context,
         localizations.passwordResetGenericError,
       );
-    }
-  }
-
-  String _authMessage(FirebaseAuthException e, AppLocalizations loc) {
-    switch (e.code) {
-      case 'invalid-email':
-        return loc.validEmail;
-      case 'user-not-found':
-        return loc.passwordResetNoUserForEmail;
-      case 'too-many-requests':
-        return loc.tooManyRequests;
-      case 'network-request-failed':
-        return loc.networkError;
-      default:
-        return loc.passwordResetGenericError;
     }
   }
 

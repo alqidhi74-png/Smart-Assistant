@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../constants/colors.dart';
 import '../constants/language.dart';
 
 class AdminSidebar extends StatelessWidget {
@@ -26,32 +25,41 @@ class AdminSidebar extends StatelessWidget {
   Widget build(BuildContext context) {
     final localizations =
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor =
+        isDark ? const Color(0xFF1E1E1E) : Theme.of(context).colorScheme.surface;
+    final textColor =
+        isDark
+            ? Theme.of(context).colorScheme.onSurface
+            : Theme.of(context).colorScheme.onSurface;
+    final dividerColor =
+        isDark ? const Color(0xFF2C2C2C) : Theme.of(context).colorScheme.outline;
     return Drawer(
       child: Container(
-        color: const Color(0xFFE0E0E0),
+        color: bgColor,
         child: ListView(
           padding: EdgeInsets.zero,
           children: [
             DrawerHeader(
               margin: EdgeInsets.zero,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(color: Color(0xFFE0E0E0)),
+              decoration: BoxDecoration(color: bgColor),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.person_outline, size: 44),
+                  Icon(Icons.person_outline, size: 44, color: textColor),
                   const SizedBox(height: 8),
                   Text(
                     adminName,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textDark,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  const Divider(
-                    color: AppColors.textDark,
+                  Divider(
+                    color: dividerColor,
                     thickness: 1,
                     height: 1,
                   ),
@@ -63,37 +71,54 @@ class AdminSidebar extends StatelessWidget {
               icon: Icons.home,
               label: localizations.homePage,
               onTap: onHome,
+              iconColor: textColor,
+              textColor: textColor,
+              dividerColor: dividerColor,
             ),
             _buildTile(
               context,
               icon: Icons.category,
               label: localizations.categoryPage,
               onTap: onCategory,
+              iconColor: textColor,
+              textColor: textColor,
+              dividerColor: dividerColor,
             ),
             _buildTile(
               context,
               icon: Icons.group,
               label: localizations.userDetailsPage,
               onTap: onUserDetails,
+              iconColor: textColor,
+              textColor: textColor,
+              dividerColor: dividerColor,
             ),
             _buildTile(
               context,
               icon: Icons.feedback_outlined,
               label: localizations.feedback,
               onTap: onFeedback,
+              iconColor: textColor,
+              textColor: textColor,
+              dividerColor: dividerColor,
             ),
             _buildTile(
               context,
               icon: Icons.settings_outlined,
               label: localizations.settings,
               onTap: onSettings,
+              iconColor: textColor,
+              textColor: textColor,
+              dividerColor: dividerColor,
             ),
             _buildTile(
               context,
               icon: Icons.logout,
               label: localizations.logout,
               onTap: onLogout,
-              iconColor: AppColors.textDark,
+              iconColor: textColor,
+              textColor: textColor,
+              dividerColor: dividerColor,
             ),
           ],
         ),
@@ -106,7 +131,9 @@ class AdminSidebar extends StatelessWidget {
     required IconData icon,
     required String label,
     VoidCallback? onTap,
-    Color iconColor = AppColors.textDark,
+    required Color iconColor,
+    required Color textColor,
+    required Color dividerColor,
   }) {
     return Column(
       children: [
@@ -114,8 +141,8 @@ class AdminSidebar extends StatelessWidget {
           leading: Icon(icon, color: iconColor),
           title: Text(
             label,
-            style: const TextStyle(
-              color: AppColors.textDark,
+            style: TextStyle(
+              color: textColor,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -124,7 +151,7 @@ class AdminSidebar extends StatelessWidget {
             onTap?.call();
           },
         ),
-        const Divider(height: 1, color: AppColors.textDark),
+        Divider(height: 1, color: dividerColor),
       ],
     );
   }

@@ -7,7 +7,10 @@ import 'package:intl/intl.dart';
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
-import '../core/utils.dart';
+import '../utils/account_actions.dart';
+import '../utils/bill_type_utils.dart';
+import '../services/categories_rtdb_hub.dart';
+import '../utils/category_rtdb_style.dart';
 import 'sidebar.dart';
 import 'category.dart';
 import 'userdetails.dart';
@@ -32,9 +35,6 @@ class _AdminHomeState extends State<AdminHome> {
   final DatabaseReference _usersRef = FirebaseDatabase.instance.ref().child(
     'users',
   );
-  final DatabaseReference _categoriesRef = FirebaseDatabase.instance
-      .ref()
-      .child('categories');
   final DatabaseReference _billsRef = FirebaseDatabase.instance.ref().child(
     'my_bills',
   );
@@ -197,7 +197,7 @@ class _AdminHomeState extends State<AdminHome> {
                             ),
                             const SizedBox(height: 8),
                             StreamBuilder<DatabaseEvent>(
-                              stream: _categoriesRef.onValue,
+                              stream: CategoriesRtdbHub.instance.stream,
                               builder: (context, categorySnapshot) {
                                 final categoryItems = _mapCategoryStats(
                                   categorySnapshot.data?.snapshot.value,
@@ -281,7 +281,7 @@ class _AdminHomeState extends State<AdminHome> {
                                               crossAxisSpacing: 8,
                                               mainAxisSpacing: 8,
                                               childAspectRatio:
-                                                  isNarrow ? 2.8 : 2.3,
+                                                  isNarrow ? 2.3 : 2.0,
                                               children:
                                                   overviewItems
                                                       .map(
@@ -314,7 +314,7 @@ class _AdminHomeState extends State<AdminHome> {
                                         _buildChartCard(
                                           title:
                                               localizations.billsDistribution,
-                                          height: 228,
+                                          minHeight: 228,
                                           child: _BillsDistributionChart(
                                             items: categories,
                                             emptyText:
@@ -324,7 +324,7 @@ class _AdminHomeState extends State<AdminHome> {
                                         const SizedBox(height: 8),
                                         _buildChartCard(
                                           title: localizations.billsTrend,
-                                          height: 228,
+                                          minHeight: 228,
                                           child: _BillsTrendChart(
                                             labels: labels,
                                             series: chartSeries,
@@ -335,7 +335,7 @@ class _AdminHomeState extends State<AdminHome> {
                                         const SizedBox(height: 8),
                                         _buildChartCard(
                                           title: localizations.monthlyOverview,
-                                          height: 238,
+                                          minHeight: 238,
                                           child: _MonthlyBarChart(
                                             labels: labels,
                                             series: chartSeries,
@@ -369,46 +369,43 @@ class _AdminHomeState extends State<AdminHome> {
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Container(
             padding: const EdgeInsets.all(3),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(icon, color: AppColors.backgroundWhite, size: 11),
+            child: Icon(icon, color: AppColors.backgroundWhite, size: 13),
           ),
-          const Spacer(),
+          const SizedBox(height: 4),
           Text(
             value,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: AppColors.backgroundWhite,
             ),
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 2),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 10.5,
-                    color: AppColors.backgroundWhite,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 3),
-              SizedBox(
-                width: 26,
-                height: 12,
-                child: CustomPaint(painter: _SparkLinePainter()),
-              ),
-            ],
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.backgroundWhite,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 3),
+          SizedBox(
+            width: 28,
+            height: 12,
+            child: CustomPaint(painter: _SparkLinePainter()),
           ),
         ],
       ),
@@ -418,14 +415,22 @@ class _AdminHomeState extends State<AdminHome> {
   Widget _buildChartCard({
     required String title,
     required Widget child,
-    double height = 140,
+    double minHeight = 140,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor =
+        isDark ? const Color(0xFF2F2F2F) : AppColors.backgroundWhite;
+    final borderColor =
+        isDark ? Colors.transparent : const Color(0xFFE0E4EA);
+    final titleColor = isDark ? AppColors.backgroundWhite : AppColors.textDark;
+    final contentHeight = (minHeight - 52).clamp(110.0, 1000.0).toDouble();
     return Container(
-      height: height,
+      constraints: BoxConstraints(minHeight: minHeight),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF2F2F2F),
+        color: cardColor,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -435,17 +440,20 @@ class _AdminHomeState extends State<AdminHome> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.backgroundWhite,
+                    color: titleColor,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Expanded(child: child),
+          SizedBox(
+            height: contentHeight,
+            child: child,
+          ),
         ],
       ),
     );
@@ -688,7 +696,7 @@ LineChartBarData _buildLineSeries({
     belowBarData: BarAreaData(
       show: true,
       gradient: LinearGradient(
-        colors: [color.withOpacity(0.35), color.withOpacity(0.0)],
+        colors: [color.withValues(alpha: 0.35), color.withValues(alpha: 0.0)],
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
       ),
@@ -701,7 +709,7 @@ class _SparkLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint =
         Paint()
-          ..color = Colors.white.withOpacity(0.8)
+          ..color = Colors.white.withValues(alpha: 0.8)
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke;
     final path =
@@ -730,7 +738,7 @@ class _BillsDistributionChart extends StatelessWidget {
       return Center(
         child: Text(
           emptyText,
-          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
         ),
       );
     }
@@ -787,6 +795,9 @@ class _LegendItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor =
+        isDark ? AppColors.backgroundWhite : AppColors.textSecondary;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -798,8 +809,8 @@ class _LegendItem extends StatelessWidget {
         const SizedBox(width: 6),
         Text(
           label,
-          style: const TextStyle(
-            color: AppColors.backgroundWhite,
+          style: TextStyle(
+            color: textColor,
             fontSize: 10,
           ),
         ),
@@ -821,6 +832,27 @@ class _BillsTrendChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final faintText =
+        isDark
+            ? Colors.white.withValues(alpha: 0.7)
+            : AppColors.textSecondary;
+    final axisText =
+        isDark
+            ? Colors.white.withValues(alpha: 0.6)
+            : AppColors.textSecondary;
+    final hGrid =
+        isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : const Color(0xFFDDE3EC);
+    final vGrid =
+        isDark
+            ? Colors.white.withValues(alpha: 0.05)
+            : const Color(0xFFE7ECF3);
+    final borderColor =
+        isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : const Color(0xFFD3DAE5);
     final values = series.expand((s) => s.values).toList();
     final maxValue =
         values.isEmpty ? 0.0 : values.reduce((a, b) => a > b ? a : b);
@@ -828,7 +860,7 @@ class _BillsTrendChart extends StatelessWidget {
       return Center(
         child: Text(
           emptyText,
-          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          style: TextStyle(color: faintText),
         ),
       );
     }
@@ -846,10 +878,16 @@ class _BillsTrendChart extends StatelessWidget {
           drawVerticalLine: true,
           getDrawingHorizontalLine:
               (value) =>
-                  FlLine(color: Colors.white.withOpacity(0.08), strokeWidth: 1),
+                  FlLine(
+                    color: hGrid,
+                    strokeWidth: 1,
+                  ),
           getDrawingVerticalLine:
               (value) =>
-                  FlLine(color: Colors.white.withOpacity(0.05), strokeWidth: 1),
+                  FlLine(
+                    color: vGrid,
+                    strokeWidth: 1,
+                  ),
         ),
         titlesData: FlTitlesData(
           topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -862,7 +900,7 @@ class _BillsTrendChart extends StatelessWidget {
                   (value, meta) => Text(
                     value.toInt().toString(),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: axisText,
                       fontSize: 9,
                     ),
                   ),
@@ -883,7 +921,7 @@ class _BillsTrendChart extends StatelessWidget {
                   child: Text(
                     labels[index],
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: axisText,
                       fontSize: 9,
                     ),
                   ),
@@ -895,8 +933,8 @@ class _BillsTrendChart extends StatelessWidget {
         borderData: FlBorderData(
           show: true,
           border: Border(
-            left: BorderSide(color: Colors.white.withOpacity(0.1)),
-            bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+            left: BorderSide(color: borderColor),
+            bottom: BorderSide(color: borderColor),
           ),
         ),
         lineBarsData:
@@ -933,6 +971,23 @@ class _MonthlyBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final faintText =
+        isDark
+            ? Colors.white.withValues(alpha: 0.7)
+            : AppColors.textSecondary;
+    final axisText =
+        isDark
+            ? Colors.white.withValues(alpha: 0.6)
+            : AppColors.textSecondary;
+    final hGrid =
+        isDark
+            ? Colors.white.withValues(alpha: 0.08)
+            : const Color(0xFFDDE3EC);
+    final borderColor =
+        isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : const Color(0xFFD3DAE5);
     final values = series.expand((s) => s.values).toList();
     final maxValue =
         values.isEmpty ? 0.0 : values.reduce((a, b) => a > b ? a : b);
@@ -940,7 +995,7 @@ class _MonthlyBarChart extends StatelessWidget {
       return Center(
         child: Text(
           emptyText,
-          style: TextStyle(color: Colors.white.withOpacity(0.7)),
+          style: TextStyle(color: faintText),
         ),
       );
     }
@@ -955,7 +1010,10 @@ class _MonthlyBarChart extends StatelessWidget {
           drawVerticalLine: false,
           getDrawingHorizontalLine:
               (value) =>
-                  FlLine(color: Colors.white.withOpacity(0.08), strokeWidth: 1),
+                  FlLine(
+                    color: hGrid,
+                    strokeWidth: 1,
+                  ),
         ),
         titlesData: FlTitlesData(
           topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -968,7 +1026,7 @@ class _MonthlyBarChart extends StatelessWidget {
                   (value, meta) => Text(
                     value.toInt().toString(),
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: axisText,
                       fontSize: 9,
                     ),
                   ),
@@ -988,7 +1046,7 @@ class _MonthlyBarChart extends StatelessWidget {
                   child: Text(
                     labels[index],
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: axisText,
                       fontSize: 9,
                     ),
                   ),
@@ -1000,8 +1058,8 @@ class _MonthlyBarChart extends StatelessWidget {
         borderData: FlBorderData(
           show: true,
           border: Border(
-            left: BorderSide(color: Colors.white.withOpacity(0.1)),
-            bottom: BorderSide(color: Colors.white.withOpacity(0.1)),
+            left: BorderSide(color: borderColor),
+            bottom: BorderSide(color: borderColor),
           ),
         ),
         barGroups: List.generate(labels.length, (index) {

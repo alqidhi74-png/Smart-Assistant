@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'auth_gate.dart';
 import 'constants/language.dart';
 import 'providers/theme_provider.dart';
-import 'core/utils.dart';
+import 'utils/app_error_reporter.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

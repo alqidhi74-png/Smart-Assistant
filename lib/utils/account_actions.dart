@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/colors.dart';
@@ -7,6 +8,7 @@ import '../login.dart';
 import '../services/multi_account_service.dart';
 import 'app_error_reporter.dart';
 import 'app_snackbar.dart';
+import 'firebase_auth_user_message.dart';
 import 'loading_overlay.dart';
 
 /// Shared account switcher (user + admin) and multi-account logout sheet.
@@ -26,10 +28,12 @@ abstract final class AccountActions {
     SavedAccount account,
     AppLocalizations loc,
   ) async {
+    LoadingOverlay.forceHide();
     LoadingOverlay.show(context);
     try {
       await MultiAccountService.switchToAccount(account.uid);
       LoadingOverlay.hide();
+      if (!context.mounted) return;
       _popNavigationToRoot(context);
       return;
     } on MissingStoredCredentialsException catch (_) {
@@ -48,9 +52,19 @@ abstract final class AccountActions {
         if (context.mounted) {
           _popNavigationToRoot(context);
         }
-      } catch (_) {
+      } catch (e, st) {
+        _reportAccountSwitchFailure(e, st);
         if (context.mounted) {
-          AppSnackBar.showError(context, loc.accountSwitchError);
+          AppSnackBar.showError(
+            context,
+            e is FirebaseAuthException
+                ? firebaseAuthUserMessage(
+                    e,
+                    loc,
+                    context: FirebaseAuthMessageContext.accountSwitch,
+                  )
+                : loc.accountSwitchError,
+          );
         }
       } finally {
         LoadingOverlay.hide();
@@ -75,12 +89,39 @@ abstract final class AccountActions {
             ),
       );
     } catch (e, st) {
-      AppErrorReporter.debug('performAccountSwitch', e, st);
+      _reportAccountSwitchFailure(e, st);
       LoadingOverlay.hide();
       if (context.mounted) {
-        AppSnackBar.showError(context, loc.accountSwitchError);
+        AppSnackBar.showError(
+          context,
+          e is FirebaseAuthException
+              ? firebaseAuthUserMessage(
+                  e,
+                  loc,
+                  context: FirebaseAuthMessageContext.accountSwitch,
+                )
+              : loc.accountSwitchError,
+        );
       }
     }
+  }
+
+  static void _reportAccountSwitchFailure(Object e, StackTrace? st) {
+    if (e is FirebaseAuthException) {
+      const quiet = <String>{
+        'network-request-failed',
+        'network_error',
+        'network-error',
+        'too-many-requests',
+      };
+      if (quiet.contains(e.code)) {
+        if (kDebugMode) {
+          debugPrint('[performAccountSwitch] ${e.code}');
+        }
+        return;
+      }
+    }
+    AppErrorReporter.debug('performAccountSwitch', e, st);
   }
 
   static Future<String?> _showPasswordForAccountDialog(

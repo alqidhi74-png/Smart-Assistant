@@ -20,8 +20,12 @@ class AboutAppPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: Text(localizations.aboutAppTitle),
+        title: Text(
+          localizations.aboutAppTitle,
+          style: TextStyle(color: textColor),
+        ),
         backgroundColor: background,
+        foregroundColor: textColor,
         elevation: 0,
         centerTitle: true,
         leading: BackButton(color: textColor),

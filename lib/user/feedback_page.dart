@@ -3,8 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
-import '../core/utils.dart';
+import '../utils/loading_overlay.dart';
 import '../constants/language.dart';
+import '../utils/app_snackbar.dart';
 
 class FeedbackPage extends StatefulWidget {
   const FeedbackPage({super.key});
@@ -41,8 +42,12 @@ class _FeedbackPageState extends State<FeedbackPage> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: Text(localizations.feedback),
+        title: Text(
+          localizations.feedback,
+          style: TextStyle(color: textColor),
+        ),
         backgroundColor: background,
+        foregroundColor: textColor,
         elevation: 0,
         centerTitle: true,
         leading: BackButton(color: textColor),

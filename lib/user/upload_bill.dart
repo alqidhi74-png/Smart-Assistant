@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -9,11 +8,13 @@ import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../models/bill_analysis.dart';
 import '../services/bill_analysis_service.dart';
+import '../services/bill_nlp_pipeline.dart';
 import '../services/category_policy_service.dart';
 import '../services/image_preprocess_service.dart';
 import '../services/ocr_service.dart';
 import '../services/pdf_text_service.dart';
-import '../core/utils.dart';
+import '../utils/app_snackbar.dart';
+import '../utils/loading_overlay.dart';
 import 'bill_review_page.dart';
 
 class UploadBillPage extends StatefulWidget {
@@ -80,7 +81,7 @@ class _UploadBillPageState extends State<UploadBillPage> {
   Future<void> _pickImage() async {
     final image = await _imagePicker.pickImage(
       source: ImageSource.gallery,
-      imageQuality: 100,
+      imageQuality: 85,
     );
     if (!mounted) return;
     if (image == null) {
@@ -93,7 +94,7 @@ class _UploadBillPageState extends State<UploadBillPage> {
   Future<void> _takeImage() async {
     final image = await _imagePicker.pickImage(
       source: ImageSource.camera,
-      imageQuality: 100,
+      imageQuality: 85,
     );
     if (!mounted) return;
     if (image == null) {
@@ -121,8 +122,19 @@ class _UploadBillPageState extends State<UploadBillPage> {
     if (mounted) LoadingOverlay.show(context);
 
     try {
-      final processedPath = await _imagePreprocessService.prepareForOcr(path);
-      final text = await _ocrService.extractTextFromImagePath(processedPath);
+      final variants = await _imagePreprocessService.prepareVariantsForOcr(path);
+      final best = await _ocrService.extractBestTextResultFromImagePaths(
+        variants,
+      );
+      if (kDebugMode) {
+        final logs =
+            best.candidates
+                .map((c) => '${c.score} :: ${c.path.split('/').last}')
+                .join(' | ');
+        debugPrint('OCR variants: $logs');
+        debugPrint('OCR selected: ${best.bestPath}');
+      }
+      final text = best.text;
       if (!mounted) return;
       await _finalizeBillFromText(text);
     } catch (_) {
@@ -143,7 +155,7 @@ class _UploadBillPageState extends State<UploadBillPage> {
       return;
     }
 
-    final analysis = BillAnalysisService.analyze(text);
+    final analysis = BillNlpPipeline.analyzeBill(text);
     if (!BillAnalysisService.isAcceptedUtilityBill(analysis)) {
       if (mounted) LoadingOverlay.hide();
       if (mounted) setState(() => _isProcessing = false);
@@ -236,8 +248,12 @@ class _UploadBillPageState extends State<UploadBillPage> {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: Text(localizations.uploadBillTitle),
+        title: Text(
+          localizations.uploadBillTitle,
+          style: TextStyle(color: textColor),
+        ),
         backgroundColor: background,
+        foregroundColor: textColor,
         elevation: 0,
         centerTitle: true,
         leading: BackButton(color: textColor),
@@ -426,6 +442,7 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -434,15 +451,29 @@ class _StatusCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: borderColor),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: AppLoadingIndicator(size: AppLoadingSize.inline),
+          Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: AppLoadingIndicator(size: AppLoadingSize.inline),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Text(title, style: TextStyle(color: textColor))),
+            ],
           ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(title, style: TextStyle(color: textColor))),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              minHeight: 4,
+              backgroundColor: primary.withValues(alpha: 0.12),
+              color: primary,
+            ),
+          ),
         ],
       ),
     );

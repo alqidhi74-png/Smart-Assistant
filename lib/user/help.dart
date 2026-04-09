@@ -3,7 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
-import '../core/utils.dart';
+import '../utils/app_snackbar.dart';
 
 /// Oman support line (local display); E.164 used for tel/sms URIs.
 const String _kSupportPhoneLocal = '91208200';
@@ -92,15 +92,20 @@ class HelpPage extends StatelessWidget {
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final background = Theme.of(context).scaffoldBackgroundColor;
+    final titleColor = isDark ? Colors.white : AppColors.textDark;
 
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: Text(localizations.help),
+        title: Text(
+          localizations.help,
+          style: TextStyle(color: titleColor),
+        ),
         backgroundColor: background,
+        foregroundColor: titleColor,
         elevation: 0,
         centerTitle: true,
-        leading: BackButton(color: isDark ? Colors.white : AppColors.textDark),
+        leading: BackButton(color: titleColor),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

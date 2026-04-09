@@ -4,7 +4,12 @@ import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../services/admin_bill_cleanup_service.dart';
-import '../core/utils.dart';
+import '../services/categories_rtdb_hub.dart';
+import '../utils/bill_type_utils.dart';
+import '../utils/category_rtdb_style.dart';
+import '../utils/app_snackbar.dart';
+import '../utils/account_actions.dart';
+import '../utils/loading_overlay.dart';
 import 'adminhome.dart';
 import 'sidebar.dart';
 import 'userdetails.dart';
@@ -30,6 +35,9 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
   final DatabaseReference _categoriesRef = FirebaseDatabase.instance
       .ref()
       .child('categories');
+  final DatabaseReference _billsRef = FirebaseDatabase.instance.ref().child(
+    'my_bills',
+  );
 
   @override
   void initState() {
@@ -86,13 +94,16 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(
-            Icons.menu,
+            Navigator.of(context).canPop() ? Icons.arrow_back : Icons.menu,
             color:
                 Theme.of(context).brightness == Brightness.dark
                     ? Colors.white
                     : AppColors.textDark,
           ),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          onPressed:
+              Navigator.of(context).canPop()
+                  ? () => Navigator.of(context).maybePop()
+                  : () => _scaffoldKey.currentState?.openDrawer(),
         ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -130,27 +141,47 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
               ),
               const SizedBox(height: 16),
               StreamBuilder<DatabaseEvent>(
-                stream: _categoriesRef.onValue,
+                stream: CategoriesRtdbHub.instance.stream,
+                initialData: CategoriesRtdbHub.instance.latestEvent,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const IosStyleLoading();
-                  }
-                  final items = _parseCategories(snapshot.data?.snapshot.value);
-                  if (items.isEmpty) {
+                  if (snapshot.hasError) {
                     return Center(
                       child: Padding(
                         padding: const EdgeInsets.only(top: 12),
                         child: Text(
-                          localizations.noCategories,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                          ),
+                          localizations.categoriesLoadError,
+                          style: const TextStyle(color: AppColors.error),
                         ),
                       ),
                     );
                   }
-                  return Column(
-                    children: items.map(_buildCategoryCard).toList(),
+                  return StreamBuilder<DatabaseEvent>(
+                    stream: _billsRef.onValue,
+                    builder: (context, billsSnapshot) {
+                      final billCounts = _countBillsByType(
+                        billsSnapshot.data?.snapshot.value,
+                      );
+                      final items = _parseCategories(
+                        snapshot.data?.snapshot.value,
+                        billCounts,
+                      );
+                      if (items.isEmpty) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              localizations.noCategories,
+                              style: const TextStyle(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      return Column(
+                        children: items.map(_buildCategoryCard).toList(),
+                      );
+                    },
                   );
                 },
               ),
@@ -164,6 +195,10 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
   Widget _buildCategoryCard(_CategoryItem item) {
     final localizations =
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final textOnCard =
+        ThemeData.estimateBrightnessForColor(item.color) == Brightness.dark
+            ? Colors.white
+            : AppColors.textDark;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: EdgeInsets.symmetric(
@@ -185,17 +220,17 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
               children: [
                 Text(
                   item.title,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textDark,
+                    color: textOnCard,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   item.subtitle,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.textDark,
+                    color: textOnCard,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -220,20 +255,20 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
               ],
             ),
           ),
-          Row(
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
             children: [
               _buildActionIcon(
                 icon: Icons.download,
                 color: const Color(0xFF5DA7FF),
                 onTap: () => _downloadCategory(item),
               ),
-              const SizedBox(width: 6),
               _buildActionIcon(
                 icon: Icons.edit,
                 color: const Color(0xFF6B7BFF),
                 onTap: () => _showUpdateDialog(item),
               ),
-              const SizedBox(width: 6),
               _buildActionIcon(
                 icon: Icons.delete,
                 color: const Color(0xFFE44B4B),
@@ -465,7 +500,10 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
     });
   }
 
-  List<_CategoryItem> _parseCategories(Object? value) {
+  List<_CategoryItem> _parseCategories(
+    Object? value,
+    Map<String, int> billCounts,
+  ) {
     if (value == null) return [];
     final data = value as Map<dynamic, dynamic>;
     final rawItems =
@@ -481,17 +519,42 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
         }).toList();
     return rawItems.map((raw) {
       final style = CategoryRtdbStyle.fromMap(raw.raw, raw.name);
+      final dynamicCount = _countForCategoryName(raw.name, billCounts);
       return _CategoryItem(
         id: raw.id,
         title: raw.name,
         subtitle: raw.description,
-        billsCount: raw.billsCount,
+        billsCount: dynamicCount,
         color: style.cardColor,
         iconColor: style.iconTint,
         badgeColor: style.badgeColor,
         icon: style.icon,
       );
     }).toList();
+  }
+
+  Map<String, int> _countBillsByType(Object? data) {
+    final counts = <String, int>{};
+    if (data is Map) {
+      for (final userEntry in data.values) {
+        if (userEntry is Map) {
+          for (final billEntry in userEntry.values) {
+            if (billEntry is Map) {
+              final rawType = billEntry['type']?.toString() ?? '';
+              final key = BillTypeUtils.canonicalTypeKey(rawType);
+              if (key.isEmpty) continue;
+              counts[key] = (counts[key] ?? 0) + 1;
+            }
+          }
+        }
+      }
+    }
+    return counts;
+  }
+
+  int _countForCategoryName(String name, Map<String, int> billCounts) {
+    final key = BillTypeUtils.canonicalTypeKey(name);
+    return billCounts[key] ?? 0;
   }
 }
 
@@ -638,8 +701,8 @@ class _CategoryEditorDialogState extends State<_CategoryEditorDialog> {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          width: 320,
-          constraints: const BoxConstraints(maxHeight: 520),
+          width: MediaQuery.of(context).size.width * 0.92,
+          constraints: const BoxConstraints(maxWidth: 420, maxHeight: 520),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: const Color(0xFFECECEC),

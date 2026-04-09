@@ -1,6 +1,6 @@
 import 'package:firebase_database/firebase_database.dart';
 
-import '../core/utils.dart';
+import '../utils/bill_type_utils.dart';
 
 /// Removes all user bills under [my_bills] that match a category (electricity / water / internet).
 abstract final class AdminBillCleanupService {

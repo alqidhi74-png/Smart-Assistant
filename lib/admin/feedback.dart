@@ -3,7 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
-import '../core/utils.dart';
+import '../utils/account_actions.dart';
 import 'adminhome.dart';
 import 'sidebar.dart';
 import 'category.dart';
@@ -79,13 +79,13 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(
-            Icons.menu,
+            (Navigator.of(context).canPop() ? Icons.arrow_back : Icons.menu),
             color:
                 Theme.of(context).brightness == Brightness.dark
                     ? Colors.white
                     : AppColors.textDark,
           ),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          onPressed: Navigator.of(context).canPop() ? () => Navigator.of(context).maybePop() : () => _scaffoldKey.currentState?.openDrawer(),
         ),
       ),
       body: SafeArea(child: _buildFeedbackList(localizations)),
@@ -271,6 +271,11 @@ class _FeedbackCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F7FA);
+    final borderColor = isDark ? const Color(0xFF2C2C2C) : const Color(0xFFE0E4EA);
+    final nameColor = isDark ? Colors.white : AppColors.textDark;
+    final msgColor = isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
     final initials =
         item.name.isNotEmpty
             ? item.name.trim().split(' ').map((e) => e[0]).take(2).join()
@@ -281,9 +286,9 @@ class _FeedbackCard extends StatelessWidget {
         vertical: AppLayout.pagePaddingV + 2,
       ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF5F7FA),
+        color: cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE0E4EA)),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,7 +310,10 @@ class _FeedbackCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         item.name,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: nameColor,
+                        ),
                       ),
                     ),
                     _StarsRow(rating: item.rating),
@@ -314,7 +322,7 @@ class _FeedbackCard extends StatelessWidget {
                 const SizedBox(height: 6),
                 Text(
                   item.message,
-                  style: const TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: msgColor),
                   maxLines: 10,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -346,3 +354,4 @@ class _StarsRow extends StatelessWidget {
     );
   }
 }
+

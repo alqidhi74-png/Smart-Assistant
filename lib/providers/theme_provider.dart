@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../constants/colors.dart';
-import '../core/utils.dart';
+import '../utils/app_transitions.dart';
 
 class ThemeNotifier extends ChangeNotifier {
   static const String _themeKey = 'dark_mode';

@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import '../models/bill_summary.dart';
-import '../core/utils.dart';
+import '../utils/app_error_reporter.dart';
 
 class BillStore {
   BillStore._();

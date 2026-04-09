@@ -1,5 +1,6 @@
 import '../models/bill_analysis.dart';
-import '../core/utils.dart';
+import '../utils/billing_month_parser.dart';
+import '../utils/text_normalize.dart';
 
 class BillAnalysisService {
   /// Only water and electricity bills may continue to the review screen.
@@ -7,7 +8,9 @@ class BillAnalysisService {
     return r.billType == 'Water' || r.billType == 'Electricity';
   }
 
-  static BillAnalysisResult analyze(String text) {
+  /// [displayRawText] is shown in [BillAnalysisResult.rawText] (e.g. original OCR);
+  /// [text] is what gets normalized and parsed (typically NLP output).
+  static BillAnalysisResult analyze(String text, {String? displayRawText}) {
     final normalized = _normalize(text);
     final lines = _mergeBrokenLines(
       normalized
@@ -128,6 +131,7 @@ class BillAnalysisService {
     var cUnit = consumptionUnit;
     var cVal = consumptionValue;
     cVal ??= _secondPassConsumption(lines, inferredType);
+    totalAmount ??= _extractTypeAwareTotal(lines, inferredType);
     if (cVal != null) {
       if (inferredType == 'Electricity') {
         cUnit ??= 'kWh';
@@ -153,9 +157,17 @@ class BillAnalysisService {
     if (billingMonthKey == null && invDate != null) {
       billingMonthKey = BillingMonthParser.monthKeyFromText(invDate);
     }
+    final totalAmountConfidence = _confidenceForAmount(totalAmount);
+    final consumptionConfidence = _confidenceForConsumption(
+      cVal,
+      cUnit,
+      inferredType,
+    );
+    final accountConfidence = _confidenceForAccount(accountNumber);
+    final invoiceConfidence = _confidenceForInvoice(invoiceNumber);
 
     return BillAnalysisResult(
-      rawText: text.trim(),
+      rawText: (displayRawText ?? text).trim(),
       billType: inferredType,
       accountNumber: accountNumber,
       invoiceNumber: invoiceNumber,
@@ -170,7 +182,88 @@ class BillAnalysisService {
       billingMonthKey: billingMonthKey,
       currentMonthAmount: currentMonthAmount,
       consumptionDays: consumptionDays,
+      totalAmountConfidence: totalAmountConfidence,
+      consumptionConfidence: consumptionConfidence,
+      accountConfidence: accountConfidence,
+      invoiceConfidence: invoiceConfidence,
     );
+  }
+
+  static double? _extractTypeAwareTotal(List<String> lines, String? billType) {
+    if (billType == null) return null;
+    final waterHint = RegExp(
+      r'(water|مياه|ماء|متر\s*مكعب|m3|m³)',
+      caseSensitive: false,
+    );
+    final electricityHint = RegExp(
+      r'(electric|كهرباء|kwh|kw)',
+      caseSensitive: false,
+    );
+    final wantWater = billType == 'Water';
+    double? best;
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      final lower = line.toLowerCase();
+      if (!_matchesAny(lower, _totalStrongRe)) continue;
+      final hasTypeHint =
+          wantWater ? waterHint.hasMatch(line) : electricityHint.hasMatch(line);
+      if (!hasTypeHint) continue;
+      final n = _extractNumberFromLines(lines, i);
+      if (_isPlausibleBillAmount(n) && n != null) {
+        if (best == null || n > best) best = n;
+      }
+    }
+    return best;
+  }
+
+  static double? _confidenceForAmount(double? value) {
+    if (value == null) return null;
+    if (value <= 0 || value > 50000) return 0.2;
+    if (value < 1) return 0.4;
+    if (value <= 3000) return 0.9;
+    if (value <= 10000) return 0.75;
+    return 0.6;
+  }
+
+  static double? _confidenceForConsumption(
+    double? value,
+    String? unit,
+    String? billType,
+  ) {
+    if (value == null) return null;
+    if (value <= 0) return 0.2;
+    final u = unit?.trim() ?? '';
+    if (billType == 'Water') {
+      if (u != 'm³' && u.toLowerCase() != 'm3') return 0.45;
+      if (value <= 300) return 0.9;
+      if (value <= 1000) return 0.7;
+      return 0.5;
+    }
+    if (billType == 'Electricity') {
+      if (u.toLowerCase() != 'kwh') return 0.45;
+      if (value <= 2500) return 0.9;
+      if (value <= 7000) return 0.7;
+      return 0.5;
+    }
+    return 0.6;
+  }
+
+  static double? _confidenceForAccount(String? account) {
+    final a = account?.trim() ?? '';
+    if (a.isEmpty) return null;
+    final digits = RegExp(r'\d').allMatches(a).length;
+    if (digits >= 8) return 0.9;
+    if (digits >= 5) return 0.7;
+    return 0.5;
+  }
+
+  static double? _confidenceForInvoice(String? invoice) {
+    final i = invoice?.trim() ?? '';
+    if (i.isEmpty) return null;
+    final digits = RegExp(r'\d').allMatches(i).length;
+    if (digits >= 8) return 0.9;
+    if (digits >= 5) return 0.75;
+    return 0.55;
   }
 
   static List<String> _mergeBrokenLines(List<String> raw) {

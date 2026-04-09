@@ -8,7 +8,9 @@ import 'package:path_provider/path_provider.dart';
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
-import '../core/utils.dart';
+import '../utils/app_snackbar.dart';
+import '../utils/loading_overlay.dart';
+import '../utils/account_actions.dart';
 import 'adminhome.dart';
 import 'sidebar.dart';
 import 'category.dart';
@@ -104,13 +106,13 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
         centerTitle: true,
         leading: IconButton(
           icon: Icon(
-            Icons.menu,
+            (Navigator.of(context).canPop() ? Icons.arrow_back : Icons.menu),
             color:
                 Theme.of(context).brightness == Brightness.dark
                     ? Colors.white
                     : AppColors.textDark,
           ),
-          onPressed: () => _scaffoldKey.currentState?.openDrawer(),
+          onPressed: Navigator.of(context).canPop() ? () => Navigator.of(context).maybePop() : () => _scaffoldKey.currentState?.openDrawer(),
         ),
       ),
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -119,56 +121,74 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
           children: [
             Padding(
               padding: AppLayout.pagePadding,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 40,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: AppLayout.pagePaddingH + 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: searchFill,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: borderColor),
-                      ),
-                      alignment: Alignment.center,
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged:
-                            (value) => setState(() {
-                              _searchQuery = value.trim().toLowerCase();
-                            }),
-                        style: TextStyle(fontSize: 12, color: primaryText),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          filled: true,
-                          fillColor: searchFill,
-                          icon: Icon(
-                            Icons.search,
-                            size: 16,
-                            color: secondaryText,
-                          ),
-                          hintText: localizations.searchForUser,
-                          hintStyle: TextStyle(color: secondaryText),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          disabledBorder: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 8,
-                          ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 420;
+                  final searchField = Container(
+                    height: 40,
+                    padding: EdgeInsets.symmetric(
+                      horizontal: AppLayout.pagePaddingH + 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: searchFill,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: borderColor),
+                    ),
+                    alignment: Alignment.center,
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged:
+                          (value) => setState(() {
+                            _searchQuery = value.trim().toLowerCase();
+                          }),
+                      style: TextStyle(fontSize: 12, color: primaryText),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: searchFill,
+                        icon: Icon(
+                          Icons.search,
+                          size: 16,
+                          color: secondaryText,
                         ),
+                        hintText: localizations.searchForUser,
+                        hintStyle: TextStyle(color: secondaryText),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        disabledBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 8),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildDownloadAllButton(
-                    localizations,
-                    cardColor,
-                    primaryText,
-                  ),
-                ],
+                  );
+                  if (isNarrow) {
+                    return Column(
+                      children: [
+                        searchField,
+                        const SizedBox(height: 8),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: _buildDownloadAllButton(
+                            localizations,
+                            cardColor,
+                            primaryText,
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      Expanded(child: searchField),
+                      const SizedBox(width: 8),
+                      _buildDownloadAllButton(
+                        localizations,
+                        cardColor,
+                        primaryText,
+                      ),
+                    ],
+                  );
+                },
               ),
             ),
             Expanded(
@@ -374,58 +394,121 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
               ],
             ),
             const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _buildUserActionButton(
-                    label: localizations.download,
-                    icon: Icons.download,
-                    color:
-                        isDark
-                            ? const Color(0xFF2C2C2C)
-                            : const Color(0xFFDCDCDC),
-                    textColor: primaryText,
-                    onTap: () => _downloadUser(user),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildUserActionButton(
-                    label:
-                        user.isBlocked
-                            ? localizations.unblock
-                            : localizations.block,
-                    icon: user.isBlocked ? Icons.check_circle : Icons.block,
-                    color:
-                        user.isBlocked
-                            ? const Color(0xFF7BE27B)
-                            : const Color(0xFFFF7B7B),
-                    textColor: primaryText,
-                    onTap: () => _toggleBlockUser(user, localizations),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _buildUserActionButton(
-                    label:
-                        user.isAdmin
-                            ? localizations.revokeAdmin
-                            : localizations.makeAdmin,
-                    icon:
-                        user.isAdmin
-                            ? Icons.remove_moderator
-                            : Icons.admin_panel_settings,
-                    color:
-                        user.isAdmin
-                            ? (isDark
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 420;
+                if (isNarrow) {
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: _buildUserActionButton(
+                          label: localizations.download,
+                          icon: Icons.download,
+                          color:
+                              isDark
+                                  ? const Color(0xFF2C2C2C)
+                                  : const Color(0xFFDCDCDC),
+                          textColor: primaryText,
+                          onTap: () => _downloadUser(user),
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: _buildUserActionButton(
+                          label:
+                              user.isBlocked
+                                  ? localizations.unblock
+                                  : localizations.block,
+                          icon: user.isBlocked ? Icons.check_circle : Icons.block,
+                          color:
+                              user.isBlocked
+                                  ? const Color(0xFF7BE27B)
+                                  : const Color(0xFFFF7B7B),
+                          textColor: primaryText,
+                          onTap: () => _toggleBlockUser(user, localizations),
+                        ),
+                      ),
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: _buildUserActionButton(
+                          label:
+                              user.isAdmin
+                                  ? localizations.revokeAdmin
+                                  : localizations.makeAdmin,
+                          icon:
+                              user.isAdmin
+                                  ? Icons.remove_moderator
+                                  : Icons.admin_panel_settings,
+                          color:
+                              user.isAdmin
+                                  ? (isDark
+                                      ? const Color(0xFF2C2C2C)
+                                      : const Color(0xFFDCDCDC))
+                                  : const Color(0xFFB9D7FF),
+                          textColor: primaryText,
+                          onTap: () => _toggleAdminUser(user, localizations),
+                        ),
+                      ),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    Expanded(
+                      child: _buildUserActionButton(
+                        label: localizations.download,
+                        icon: Icons.download,
+                        color:
+                            isDark
                                 ? const Color(0xFF2C2C2C)
-                                : const Color(0xFFDCDCDC))
-                            : const Color(0xFFB9D7FF),
-                    textColor: primaryText,
-                    onTap: () => _toggleAdminUser(user, localizations),
-                  ),
-                ),
-              ],
+                                : const Color(0xFFDCDCDC),
+                        textColor: primaryText,
+                        onTap: () => _downloadUser(user),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildUserActionButton(
+                        label:
+                            user.isBlocked
+                                ? localizations.unblock
+                                : localizations.block,
+                        icon: user.isBlocked ? Icons.check_circle : Icons.block,
+                        color:
+                            user.isBlocked
+                                ? const Color(0xFF7BE27B)
+                                : const Color(0xFFFF7B7B),
+                        textColor: primaryText,
+                        onTap: () => _toggleBlockUser(user, localizations),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildUserActionButton(
+                        label:
+                            user.isAdmin
+                                ? localizations.revokeAdmin
+                                : localizations.makeAdmin,
+                        icon:
+                            user.isAdmin
+                                ? Icons.remove_moderator
+                                : Icons.admin_panel_settings,
+                        color:
+                            user.isAdmin
+                                ? (isDark
+                                    ? const Color(0xFF2C2C2C)
+                                    : const Color(0xFFDCDCDC))
+                                : const Color(0xFFB9D7FF),
+                        textColor: primaryText,
+                        onTap: () => _toggleAdminUser(user, localizations),
+                      ),
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -536,7 +619,8 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
             child: Material(
               color: Colors.transparent,
               child: Container(
-                width: 260,
+                width: MediaQuery.of(context).size.width * 0.9,
+                constraints: const BoxConstraints(maxWidth: 360),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: const Color(0xFFECECEC),
@@ -625,7 +709,8 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
             child: Material(
               color: Colors.transparent,
               child: Container(
-                width: 260,
+                width: MediaQuery.of(context).size.width * 0.9,
+                constraints: const BoxConstraints(maxWidth: 360),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: const Color(0xFFECECEC),
@@ -805,7 +890,8 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
             child: Material(
               color: Colors.transparent,
               child: Container(
-                width: 280,
+                width: MediaQuery.of(context).size.width * 0.9,
+                constraints: const BoxConstraints(maxWidth: 400),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: const Color(0xFFECECEC),
@@ -958,3 +1044,4 @@ class _UserEntry {
     required this.createdAt,
   });
 }
+

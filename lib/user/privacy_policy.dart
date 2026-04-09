@@ -17,8 +17,12 @@ class PrivacyPolicyPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: background,
       appBar: AppBar(
-        title: Text(localizations.privacyPolicy),
+        title: Text(
+          localizations.privacyPolicy,
+          style: TextStyle(color: textColor),
+        ),
         backgroundColor: background,
+        foregroundColor: textColor,
         elevation: 0,
         centerTitle: true,
         leading: BackButton(color: textColor),

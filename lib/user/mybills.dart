@@ -5,9 +5,14 @@ import 'package:firebase_database/firebase_database.dart';
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
-import '../core/utils.dart';
+import '../utils/bill_list_query.dart';
+import '../utils/omr_format.dart';
 import '../data/bill_store.dart';
+import '../services/categories_rtdb_hub.dart';
 import '../models/bill_summary.dart';
+import '../utils/bill_type_utils.dart';
+import '../utils/category_rtdb_style.dart';
+import '../utils/loading_overlay.dart';
 import 'bill_details.dart';
 
 enum _SortOption { dateNewest, dateOldest }
@@ -319,7 +324,7 @@ class _MyBillsPageState extends State<MyBillsPage> {
             ),
             const SizedBox(height: 12),
             StreamBuilder<DatabaseEvent>(
-              stream: FirebaseDatabase.instance.ref('categories').onValue,
+              stream: CategoriesRtdbHub.instance.stream,
               builder: (context, snapshot) {
                 final filters = _parseCategoryFilters(
                   snapshot.data?.snapshot.value,
@@ -742,81 +747,10 @@ class _BillCardState extends State<_BillCard>
                 )
                 : null,
       ),
-      child: Row(
-        children: [
-          if (widget.selectionMode) ...[
-            InkWell(
-              onTap: widget.onSelect,
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.all(4),
-                child: Icon(
-                  widget.isSelected
-                      ? Icons.check_circle
-                      : Icons.radio_button_unchecked,
-                  color: dataColor,
-                  size: 24,
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-          ],
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.4),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: iconColor),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.bill.type,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: dataColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.bill.dateText,
-                  style: TextStyle(
-                    color: dataColor.withValues(alpha: 0.85),
-                    fontSize: 12,
-                  ),
-                ),
-                if (widget.bill.totalAmount != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    OmrFormat.amount(widget.bill.totalAmount!, loc),
-                    style: TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 14,
-                      color: dataColor,
-                    ),
-                  ),
-                ],
-                if (consumption.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    '${widget.consumptionLabel}: $consumption',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 12,
-                      color: dataColor,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Column(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 380;
+          final trailingActions = Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Container(
@@ -847,8 +781,93 @@ class _BillCardState extends State<_BillCard>
                 ),
               ),
             ],
+          );
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+          if (widget.selectionMode) ...[
+            InkWell(
+              onTap: widget.onSelect,
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  widget.isSelected
+                      ? Icons.check_circle
+                      : Icons.radio_button_unchecked,
+                  color: dataColor,
+                  size: 24,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.4),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: iconColor),
           ),
-        ],
+          const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.bill.type,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: dataColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.bill.dateText,
+                      style: TextStyle(
+                        color: dataColor.withValues(alpha: 0.85),
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (widget.bill.totalAmount != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        OmrFormat.amount(widget.bill.totalAmount!, loc),
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: dataColor,
+                        ),
+                      ),
+                    ],
+                    if (consumption.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        '${widget.consumptionLabel}: $consumption',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          color: dataColor,
+                        ),
+                      ),
+                    ],
+                    if (isNarrow) ...[
+                      const SizedBox(height: 8),
+                      Align(alignment: Alignment.centerRight, child: trailingActions),
+                    ],
+                  ],
+                ),
+              ),
+              if (!isNarrow) ...[
+                const SizedBox(width: 8),
+                trailingActions,
+              ],
+            ],
+          );
+        },
       ),
     );
 

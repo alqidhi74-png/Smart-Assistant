@@ -99,4 +99,12 @@ class LoadingOverlay {
     _entry?.remove();
     _entry = null;
   }
+
+  /// Clears any stuck overlay (e.g. after [show] without a matching [hide]).
+  /// Prefer [hide] for normal nested show/hide pairs.
+  static void forceHide() {
+    _refCount = 0;
+    _entry?.remove();
+    _entry = null;
+  }
 }

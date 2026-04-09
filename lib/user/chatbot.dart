@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
-import '../core/utils.dart';
+import '../utils/chat_intent.dart';
 
 class ChatbotPage extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -118,21 +118,27 @@ class _ChatbotPageState extends State<ChatbotPage> {
                     child: Icon(Icons.smart_toy, color: AppColors.primary),
                   ),
                   const SizedBox(width: 10),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        localizations.aiChatbot,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: primaryText,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          localizations.aiChatbot,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: primaryText,
+                          ),
                         ),
-                      ),
-                      Text(
-                        localizations.onlineNow,
-                        style: TextStyle(color: mutedText, fontSize: 12),
-                      ),
-                    ],
+                        Text(
+                          localizations.onlineNow,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: mutedText, fontSize: 12),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -212,8 +218,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
                     onTap: _sendMessage,
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      width: 36,
-                      height: 36,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(10),
@@ -221,7 +227,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
                       child: const Icon(
                         Icons.send,
                         color: Colors.white,
-                        size: 18,
+                        size: 20,
                       ),
                     ),
                   ),
@@ -280,7 +286,9 @@ class _MessageBubble extends StatelessWidget {
       alignment: isFromBot ? Alignment.centerLeft : Alignment.centerRight,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        constraints: const BoxConstraints(maxWidth: 220),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.7,
+        ),
         decoration: BoxDecoration(
           color: bubbleColor,
           borderRadius: BorderRadius.circular(12),

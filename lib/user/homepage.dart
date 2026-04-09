@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,7 +9,15 @@ import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../data/bill_store.dart';
 import '../models/bill_summary.dart';
-import '../core/utils.dart';
+import '../utils/bill_date_utils.dart';
+import '../utils/bill_list_query.dart';
+import '../utils/bill_type_utils.dart';
+import '../utils/consumption_series.dart';
+import '../utils/smart_analytics_insights.dart';
+import '../utils/account_actions.dart';
+import '../utils/category_rtdb_style.dart';
+import '../services/categories_rtdb_hub.dart';
+import '../utils/loading_overlay.dart';
 import 'feedback_page.dart';
 import 'help.dart';
 import 'upload_bill.dart';
@@ -64,10 +74,24 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   int _chartMonths = 12;
   final Map<String, int> _selectedCategoryIndices = {};
+  StreamSubscription<DatabaseEvent>? _categoriesSub;
+  List<_CategoryStat> _categoryStats = const [];
   @override
   void initState() {
     super.initState();
     BillStore.instance.ensureListening();
+    _categoriesSub = CategoriesRtdbHub.instance.stream.listen((event) {
+      if (!mounted) return;
+      setState(() {
+        _categoryStats = _mapCategoryStats(event.snapshot.value);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _categoriesSub?.cancel();
+    super.dispose();
   }
 
   /// Highlight + label default: last month when user has not tapped yet.
@@ -118,10 +142,7 @@ class _HomePageState extends State<HomePage> {
   bool _billMatchesCategory(String categoryName, String billType) {
     final categoryKey = BillTypeUtils.canonicalTypeKey(categoryName);
     final billKey = BillTypeUtils.canonicalTypeKey(billType);
-    if (categoryKey == billKey) return true;
-    final a = categoryName.toLowerCase();
-    final b = billType.toLowerCase();
-    return b.contains(a) || a.contains(b);
+    return categoryKey == billKey;
   }
 
   double _niceMax(List<double> values) {
@@ -161,6 +182,72 @@ class _HomePageState extends State<HomePage> {
     return values.any((value) => value > 0);
   }
 
+  String? _buildCategoryInsightLine(
+    List<BillSummary> bills,
+    List<_CategoryStat> categories,
+    Locale locale,
+  ) {
+    if (categories.isEmpty) return null;
+    _CategoryStat? bestCategory;
+    double? bestRatio;
+    double? bestLastValue;
+
+    for (final category in categories) {
+      final series = _buildCategorySeries(
+        bills,
+        categoryName: category.name,
+        locale: locale,
+        months: _chartMonths,
+      );
+      if (!_hasData(series.values)) continue;
+      final last = series.values.last;
+      if (last <= 0) continue;
+      final baseline = _avgBeforeLast(series.values);
+      final ratio = baseline != null && baseline > 0 ? (last / baseline) : null;
+
+      if (bestCategory == null) {
+        bestCategory = category;
+        bestRatio = ratio;
+        bestLastValue = last;
+        continue;
+      }
+      final bestRatioValue = bestRatio ?? 0;
+      final currentRatioValue = ratio ?? 0;
+      if (currentRatioValue > bestRatioValue + 0.01 ||
+          (currentRatioValue == bestRatioValue &&
+              last > (bestLastValue ?? 0))) {
+        bestCategory = category;
+        bestRatio = ratio;
+        bestLastValue = last;
+      }
+    }
+
+    if (bestCategory == null || bestLastValue == null) return null;
+    final isArabic = locale.languageCode == 'ar';
+    final key = BillTypeUtils.canonicalTypeKey(bestCategory.name);
+    final unit = key == 'water' ? 'm³' : key == 'electricity' ? 'kWh' : '';
+    final ratioPct = ((bestRatio ?? 1) - 1) * 100;
+    final trendText =
+        ratioPct >= 0
+            ? '+${ratioPct.toStringAsFixed(1)}%'
+            : '${ratioPct.toStringAsFixed(1)}%';
+    final valueText = bestLastValue.toStringAsFixed(bestLastValue % 1 == 0 ? 0 : 1);
+    if (isArabic) {
+      return 'الأكثر نشاطًا: ${bestCategory.name} ($valueText${unit.isEmpty ? '' : ' $unit'}, اتجاه $trendText)';
+    }
+    return 'Top active category: ${bestCategory.name} ($valueText${unit.isEmpty ? '' : ' $unit'}, trend $trendText)';
+  }
+
+  double? _avgBeforeLast(List<double> values) {
+    if (values.length < 2) return null;
+    final end = values.length - 1;
+    final start = end - 3 < 0 ? 0 : end - 3;
+    final slice = values.sublist(start, end);
+    if (slice.isEmpty) return null;
+    if (!slice.any((v) => v > 0)) return null;
+    return slice.reduce((a, b) => a + b) / slice.length;
+  }
+
   Future<void> _openAccountMenu() async {
     await AccountActions.showAccountSwitcherSheet(
       context: context,
@@ -193,15 +280,15 @@ class _HomePageState extends State<HomePage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                                    _HeaderSection(
-                                      fullName: widget.fullName,
-                                      subtitle: localizations.userHomePage,
-                                      welcomeText: localizations.welcome,
-                                      onAvatarTap: () {
-                                        _openAccountMenu();
-                                      },
-                                    ),
-                                    const SizedBox(height: 10),
+                    _HeaderSection(
+                      fullName: widget.fullName,
+                      subtitle: localizations.userHomePage,
+                      welcomeText: localizations.welcome,
+                      onAvatarTap: () {
+                        _openAccountMenu();
+                      },
+                    ),
+                    const SizedBox(height: 10),
                                     _UploadBillCard(
                                       title: localizations.uploadNewBill,
                                       subtitle: localizations.uploadBillHint,
@@ -217,73 +304,58 @@ class _HomePageState extends State<HomePage> {
                                       },
                                     ),
                                     const SizedBox(height: 10),
-                                    StreamBuilder<DatabaseEvent>(
-                                      stream:
-                                          FirebaseDatabase.instance
-                                              .ref('categories')
-                                              .onValue,
-                                      builder: (context, snapshot) {
-                                        final categories = _mapCategoryStats(
-                                          snapshot.data?.snapshot.value,
-                                        );
-                                        return ValueListenableBuilder<
-                                          List<BillSummary>
-                                        >(
-                                          valueListenable:
-                                              BillStore.instance.bills,
-                                          builder: (context, bills, _) {
-                                            final utilBills =
-                                                BillListQuery.utilityBillsOnly(
-                                                  bills,
-                                                );
-                                            final total = utilBills.length;
-                                            final items = [
-                                              _CategoryStat(
-                                                name: localizations.totalBills,
-                                                count: total,
-                                                icon: Icons.stacked_line_chart,
-                                                color: const Color(0xFF0B1E39),
+                                    ValueListenableBuilder<List<BillSummary>>(
+                                      valueListenable: BillStore.instance.bills,
+                                      builder: (context, bills, _) {
+                                        final utilBills =
+                                            BillListQuery.utilityBillsOnly(
+                                              bills,
+                                            );
+                                        final total = utilBills.length;
+                                        final items = [
+                                          _CategoryStat(
+                                            name: localizations.totalBills,
+                                            count: total,
+                                            icon: Icons.stacked_line_chart,
+                                            color: const Color(0xFF0B1E39),
+                                          ),
+                                          ..._categoryStats.map(
+                                            (item) => item.copyWith(
+                                              count: _countForCategory(
+                                                item.name,
+                                                utilBills,
                                               ),
-                                              ...categories.map(
-                                                (item) => item.copyWith(
-                                                  count: _countForCategory(
-                                                    item.name,
-                                                    utilBills,
-                                                  ),
-                                                ),
-                                              ),
-                                            ];
-                                            return LayoutBuilder(
-                                              builder: (context, constraints) {
-                                                final maxWidth =
-                                                    constraints.maxWidth;
-                                                final columns = (maxWidth / 128)
-                                                    .floor()
-                                                    .clamp(2, 4);
-                                                return GridView.count(
-                                                  crossAxisCount: columns,
-                                                  shrinkWrap: true,
-                                                  physics:
-                                                      const NeverScrollableScrollPhysics(),
-                                                  crossAxisSpacing: 12,
-                                                  mainAxisSpacing: 12,
-                                                  childAspectRatio: 1.28,
-                                                  children:
-                                                      items
-                                                          .map(
-                                                            (item) => _StatTile(
-                                                              title: item.name,
-                                                              value:
-                                                                  item.count
-                                                                      .toString(),
-                                                              backgroundColor:
-                                                                  item.color,
-                                                              icon: item.icon,
-                                                            ),
-                                                          )
-                                                          .toList(),
-                                                );
-                                              },
+                                            ),
+                                          ),
+                                        ];
+                                        return LayoutBuilder(
+                                          builder: (context, constraints) {
+                                            final maxWidth = constraints.maxWidth;
+                                            final columns = (maxWidth / 128)
+                                                .floor()
+                                                .clamp(2, 4);
+                                            return GridView.count(
+                                              crossAxisCount: columns,
+                                              shrinkWrap: true,
+                                              physics:
+                                                  const NeverScrollableScrollPhysics(),
+                                              crossAxisSpacing: 12,
+                                              mainAxisSpacing: 12,
+                                              childAspectRatio: 1.28,
+                                              children:
+                                                  items
+                                                      .map(
+                                                        (item) => _StatTile(
+                                                          title: item.name,
+                                                          value:
+                                                              item.count
+                                                                  .toString(),
+                                                          backgroundColor:
+                                                              item.color,
+                                                          icon: item.icon,
+                                                        ),
+                                                      )
+                                                      .toList(),
                                             );
                                           },
                                         );
@@ -365,23 +437,12 @@ class _HomePageState extends State<HomePage> {
                                       ],
                                     ),
                                     const SizedBox(height: 8),
-                                    StreamBuilder<DatabaseEvent>(
-                                      stream: FirebaseDatabase.instance
-                                          .ref('categories')
-                                          .onValue,
-                                      builder: (context, catSnapshot) {
-                                        final chartCategories =
-                                            _mapCategoryStats(
-                                          catSnapshot.data?.snapshot.value,
-                                        );
-                                        return ValueListenableBuilder<
-                                          List<BillSummary>
-                                        >(
+                                    ValueListenableBuilder<List<BillSummary>>(
                                       valueListenable: BillStore.instance.bills,
                                       builder: (context, bills, _) {
                                         final allBills = bills;
                                         final dynamicCategories =
-                                            chartCategories
+                                            _categoryStats
                                                 .where(
                                                   (c) =>
                                                       c.name.trim().isNotEmpty,
@@ -515,8 +576,6 @@ class _HomePageState extends State<HomePage> {
                                           ],
                                         );
                                       },
-                                    );
-                                      },
                                     ),
                                     const SizedBox(height: 10),
                                     ValueListenableBuilder<List<BillSummary>>(
@@ -533,12 +592,87 @@ class _HomePageState extends State<HomePage> {
                                               locale,
                                               seriesMonths: _chartMonths,
                                             );
+                                        final dynamicCategories =
+                                            _categoryStats
+                                                .where(
+                                                  (c) =>
+                                                      c.name.trim().isNotEmpty,
+                                                )
+                                                .toList();
+                                        final categoryInsight =
+                                            _buildCategoryInsightLine(
+                                              utilBills,
+                                              dynamicCategories,
+                                              locale,
+                                            );
                                         return _SmartAnalyticsCard(
                                           title: localizations.smartAnalytics,
                                           primaryText: snap.primaryLine,
                                           secondaryText: snap.secondaryLine,
                                           tertiaryText: snap.tertiaryLine,
                                           alertText: snap.alertLine,
+                                          categoryInsightText: categoryInsight,
+                                          categoriesCount:
+                                              dynamicCategories.length,
+                                          onCategoriesTap: () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder:
+                                                    (context) => _UserCategoriesPage(
+                                                      categories:
+                                                          dynamicCategories
+                                                              .map(
+                                                                (c) {
+                                                                  final series =
+                                                                      _buildCategorySeries(
+                                                                        utilBills,
+                                                                        categoryName:
+                                                                            c.name,
+                                                                        locale:
+                                                                            locale,
+                                                                        months:
+                                                                            _chartMonths,
+                                                                      );
+                                                                  final latest =
+                                                                      series
+                                                                          .values
+                                                                          .isEmpty
+                                                                      ? null
+                                                                      : series
+                                                                          .values
+                                                                          .last;
+                                                                  final avgBefore =
+                                                                      _avgBeforeLast(
+                                                                        series
+                                                                            .values,
+                                                                      );
+                                                                  final growthPct =
+                                                                      (latest != null &&
+                                                                              avgBefore != null &&
+                                                                              avgBefore > 0)
+                                                                          ? ((latest - avgBefore) /
+                                                                                  avgBefore) *
+                                                                              100
+                                                                          : null;
+                                                                  return c.copyWith(
+                                                                    count:
+                                                                        _countForCategory(
+                                                                          c.name,
+                                                                          utilBills,
+                                                                        ),
+                                                                    latestValue:
+                                                                        latest,
+                                                                    growthPct:
+                                                                        growthPct,
+                                                                  );
+                                                                },
+                                                              )
+                                                              .toList(),
+                                                    ),
+                                              ),
+                                            );
+                                          },
                                         );
                                       },
                                     ),
@@ -548,52 +682,102 @@ class _HomePageState extends State<HomePage> {
                                       color: primaryText,
                                     ),
                                     const SizedBox(height: 8),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: _ActionButton(
-                                            label: localizations.help,
-                                            icon: Icons.help_outline,
-                                            backgroundColor: const Color(
-                                              0xFFFFF1B8,
-                                            ),
-                                            iconColor: AppColors.textDark,
-                                            labelColor: AppColors.textDark,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder:
-                                                      (context) =>
-                                                          const HelpPage(),
+                                    LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final isNarrow = constraints.maxWidth < 380;
+                                        if (isNarrow) {
+                                          return Column(
+                                            children: [
+                                              _ActionButton(
+                                                label: localizations.help,
+                                                icon: Icons.help_outline,
+                                                backgroundColor: const Color(
+                                                  0xFFFFF1B8,
                                                 ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: _ActionButton(
-                                            label: localizations.feedback,
-                                            icon: Icons.feedback_outlined,
-                                            backgroundColor: const Color(
-                                              0xFFC8F7C5,
-                                            ),
-                                            iconColor: AppColors.textDark,
-                                            labelColor: AppColors.textDark,
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder:
-                                                      (context) =>
-                                                          const FeedbackPage(),
+                                                iconColor: AppColors.textDark,
+                                                labelColor: AppColors.textDark,
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder:
+                                                          (context) =>
+                                                              const HelpPage(),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                              const SizedBox(height: 8),
+                                              _ActionButton(
+                                                label: localizations.feedback,
+                                                icon: Icons.feedback_outlined,
+                                                backgroundColor: const Color(
+                                                  0xFFC8F7C5,
                                                 ),
-                                              );
-                                            },
-                                          ),
-                                        ),
-                                      ],
+                                                iconColor: AppColors.textDark,
+                                                labelColor: AppColors.textDark,
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder:
+                                                          (context) =>
+                                                              const FeedbackPage(),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ],
+                                          );
+                                        }
+                                        return Row(
+                                          children: [
+                                            Expanded(
+                                              child: _ActionButton(
+                                                label: localizations.help,
+                                                icon: Icons.help_outline,
+                                                backgroundColor: const Color(
+                                                  0xFFFFF1B8,
+                                                ),
+                                                iconColor: AppColors.textDark,
+                                                labelColor: AppColors.textDark,
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder:
+                                                          (context) =>
+                                                              const HelpPage(),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: _ActionButton(
+                                                label: localizations.feedback,
+                                                icon: Icons.feedback_outlined,
+                                                backgroundColor: const Color(
+                                                  0xFFC8F7C5,
+                                                ),
+                                                iconColor: AppColors.textDark,
+                                                labelColor: AppColors.textDark,
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    MaterialPageRoute(
+                                                      builder:
+                                                          (context) =>
+                                                              const FeedbackPage(),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        );
+                                      },
                                     ),
                   ],
                 ),
@@ -611,20 +795,26 @@ class _CategoryStat {
   final int count;
   final IconData icon;
   final Color color;
+  final double? latestValue;
+  final double? growthPct;
 
   const _CategoryStat({
     required this.name,
     required this.count,
     required this.icon,
     required this.color,
+    this.latestValue,
+    this.growthPct,
   });
 
-  _CategoryStat copyWith({int? count}) {
+  _CategoryStat copyWith({int? count, double? latestValue, double? growthPct}) {
     return _CategoryStat(
       name: name,
       count: count ?? this.count,
       icon: icon,
       color: color,
+      latestValue: latestValue ?? this.latestValue,
+      growthPct: growthPct ?? this.growthPct,
     );
   }
 }
@@ -653,18 +843,10 @@ List<_CategoryStat> _mapCategoryStats(Object? data) {
 }
 
 int _countForCategory(String name, List<BillSummary> bills) {
-  final target = name.toLowerCase();
-  return bills.where((bill) {
-    final t = bill.type.toLowerCase();
-    if (t.contains(target)) return true;
-    if (name.contains('كهرب') || target.contains('electric')) {
-      return BillTypeUtils.isElectricity(bill.type);
-    }
-    if (name.contains('مياه') || target.contains('water')) {
-      return BillTypeUtils.isWater(bill.type);
-    }
-    return false;
-  }).length;
+  final target = BillTypeUtils.canonicalTypeKey(name);
+  return bills
+      .where((bill) => BillTypeUtils.canonicalTypeKey(bill.type) == target)
+      .length;
 }
 
 class _HeaderSection extends StatelessWidget {
@@ -855,32 +1037,34 @@ class _StatTile extends StatelessWidget {
             ),
             child: FittedBox(
               fit: BoxFit.scaleDown,
-              alignment: Alignment.topLeft,
+              alignment: Alignment.center,
               child: SizedBox(
                 width: innerW,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Icon(icon, color: AppColors.textOnDark, size: 16),
+                    Icon(icon, color: AppColors.textOnDark, size: 18),
                     const SizedBox(height: 3),
                     Text(
                       value,
                       style: const TextStyle(
                         color: AppColors.textOnDark,
-                        fontSize: 18,
+                        fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 1),
                     Text(
                       title,
                       style: const TextStyle(
                         color: AppColors.textOnDark,
-                        fontSize: 11,
+                        fontSize: 13,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
@@ -1535,6 +1719,9 @@ class _SmartAnalyticsCard extends StatelessWidget {
   final String secondaryText;
   final String? tertiaryText;
   final String? alertText;
+  final String? categoryInsightText;
+  final int categoriesCount;
+  final VoidCallback? onCategoriesTap;
 
   const _SmartAnalyticsCard({
     required this.title,
@@ -1542,6 +1729,9 @@ class _SmartAnalyticsCard extends StatelessWidget {
     required this.secondaryText,
     this.tertiaryText,
     this.alertText,
+    this.categoryInsightText,
+    required this.categoriesCount,
+    this.onCategoriesTap,
   });
 
   @override
@@ -1554,6 +1744,7 @@ class _SmartAnalyticsCard extends StatelessWidget {
     final textColor = isDark ? Colors.white : AppColors.textDark;
     final mutedText =
         isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1597,6 +1788,46 @@ class _SmartAnalyticsCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   _InsightAlertRow(text: alertText!),
                 ],
+                if (categoryInsightText != null &&
+                    categoryInsightText!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  _InsightRow(text: categoryInsightText!, color: mutedText),
+                ],
+                const SizedBox(height: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(8),
+                  onTap: onCategoriesTap,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 2,
+                      vertical: 2,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.category_outlined, size: 14, color: mutedText),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            isArabic
+                                ? 'عدد التصنيفات المرتبطة: $categoriesCount'
+                                : 'Linked categories count: $categoriesCount',
+                            style: TextStyle(
+                              color: mutedText,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        if (onCategoriesTap != null)
+                          Icon(
+                            Icons.open_in_new_rounded,
+                            size: 14,
+                            color: mutedText,
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1627,6 +1858,206 @@ class _InsightAlertRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+enum _CategorySortMode { topActivity, topGrowth }
+
+class _UserCategoriesPage extends StatefulWidget {
+  final List<_CategoryStat> categories;
+
+  const _UserCategoriesPage({required this.categories});
+
+  @override
+  State<_UserCategoriesPage> createState() => _UserCategoriesPageState();
+}
+
+class _UserCategoriesPageState extends State<_UserCategoriesPage> {
+  _CategorySortMode _sortMode = _CategorySortMode.topActivity;
+
+  List<_CategoryStat> _sortedCategories() {
+    final list = List<_CategoryStat>.from(widget.categories);
+    if (_sortMode == _CategorySortMode.topGrowth) {
+      list.sort((a, b) {
+        final ga = a.growthPct ?? -9999;
+        final gb = b.growthPct ?? -9999;
+        final byGrowth = gb.compareTo(ga);
+        if (byGrowth != 0) return byGrowth;
+        final la = a.latestValue ?? 0;
+        final lb = b.latestValue ?? 0;
+        final byLatest = lb.compareTo(la);
+        if (byLatest != 0) return byLatest;
+        return b.count.compareTo(a.count);
+      });
+      return list;
+    }
+    list.sort((a, b) {
+      final la = a.latestValue ?? 0;
+      final lb = b.latestValue ?? 0;
+      final byLatest = lb.compareTo(la);
+      if (byLatest != 0) return byLatest;
+      final byCount = b.count.compareTo(a.count);
+      if (byCount != 0) return byCount;
+      return (b.growthPct ?? -9999).compareTo(a.growthPct ?? -9999);
+    });
+    return list;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = Theme.of(context).scaffoldBackgroundColor;
+    final textColor = isDark ? Colors.white : AppColors.textDark;
+    final mutedText =
+        isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
+    final borderColor =
+        isDark ? const Color(0xFF2C2C2C) : AppColors.borderLight;
+    final sorted = _sortedCategories();
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
+    return Scaffold(
+      backgroundColor: background,
+      appBar: AppBar(
+        title: Text(
+          loc.categoryPage,
+          style: TextStyle(color: textColor),
+        ),
+        backgroundColor: background,
+        foregroundColor: textColor,
+        elevation: 0,
+      ),
+      body:
+          widget.categories.isEmpty
+              ? Center(
+                child: Text(
+                  loc.noDataFound,
+                  style: TextStyle(color: mutedText),
+                ),
+              )
+              : Column(
+                children: [
+                  Padding(
+                    padding: AppLayout.pagePadding,
+                    child: SegmentedButton<_CategorySortMode>(
+                      segments: [
+                        ButtonSegment<_CategorySortMode>(
+                          value: _CategorySortMode.topActivity,
+                          label: Text(
+                            isArabic ? 'الأكثر نشاطًا' : 'Top activity',
+                          ),
+                        ),
+                        ButtonSegment<_CategorySortMode>(
+                          value: _CategorySortMode.topGrowth,
+                          label: Text(isArabic ? 'الأعلى نموًا' : 'Top growth'),
+                        ),
+                      ],
+                      selected: {_sortMode},
+                      onSelectionChanged: (next) {
+                        setState(() => _sortMode = next.first);
+                      },
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView.separated(
+                      padding: AppLayout.pagePadding,
+                      itemCount: sorted.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 10),
+                      itemBuilder: (context, index) {
+                        final c = sorted[index];
+                        final latest =
+                            c.latestValue == null
+                                ? (isArabic ? 'لا بيانات' : 'No data')
+                                : c.latestValue!.toStringAsFixed(
+                                  c.latestValue! % 1 == 0 ? 0 : 1,
+                                );
+                        final growth =
+                            c.growthPct == null
+                                ? (isArabic ? '—' : '—')
+                                : '${c.growthPct! >= 0 ? '+' : ''}${c.growthPct!.toStringAsFixed(1)}%';
+                        final growthColor =
+                            c.growthPct == null
+                                ? mutedText
+                                : c.growthPct! >= 0
+                                ? const Color(0xFFE65100)
+                                : const Color(0xFF2E7D32);
+
+                        return Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color:
+                                isDark
+                                    ? const Color(0xFF1E1E1E)
+                                    : AppColors.backgroundWhite,
+                            border: Border.all(color: borderColor),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: c.color.withValues(alpha: 0.2),
+                                child: Icon(c.icon, color: c.color, size: 18),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      c.name,
+                                      style: TextStyle(
+                                        color: textColor,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      isArabic
+                                          ? 'آخر قراءة: $latest'
+                                          : 'Latest: $latest',
+                                      style: TextStyle(
+                                        color: mutedText,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '${c.count}',
+                                    style: TextStyle(
+                                      color: textColor,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    growth,
+                                    style: TextStyle(
+                                      color: growthColor,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
     );
   }
 }
