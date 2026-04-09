@@ -8,16 +8,11 @@ import '../constants/language.dart';
 import '../changepassword.dart';
 import '../utils/account_actions.dart';
 import '../utils/app_language_sheet.dart';
-import 'adminhome.dart';
 import '../providers/theme_provider.dart';
 import '../user/about_app.dart';
 import '../user/profile.dart';
 import '../user/privacy_policy.dart';
 import '../widgets/settings_page_widgets.dart';
-import 'sidebar.dart';
-import 'category.dart';
-import 'userdetails.dart';
-import 'feedback.dart';
 
 class AdminProfilePage extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -34,7 +29,6 @@ class AdminProfilePage extends StatefulWidget {
 }
 
 class _AdminProfilePageState extends State<AdminProfilePage> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   String _fullName = 'Admin';
   String _email = '';
   String _phone = '';
@@ -84,34 +78,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
 
     return Scaffold(
-      key: _scaffoldKey,
-      drawer: AdminSidebar(
-        adminName: _fullName,
-        onHome: _goHome,
-        onCategory:
-            () => _openPage(
-              AdminCategoryPage(
-                onLanguageChanged: widget.onLanguageChanged,
-                currentLocale: activeLocale,
-              ),
-            ),
-        onUserDetails:
-            () => _openPage(
-              AdminUserDetailsPage(
-                onLanguageChanged: widget.onLanguageChanged,
-                currentLocale: activeLocale,
-              ),
-            ),
-        onFeedback:
-            () => _openPage(
-              AdminFeedbackPage(
-                onLanguageChanged: widget.onLanguageChanged,
-                currentLocale: activeLocale,
-              ),
-            ),
-        onSettings: () => Navigator.pop(context),
-        onLogout: _logout,
-      ),
       appBar: AppBar(
         title: Text(
           localizations.settings,
@@ -126,11 +92,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(
-            tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-            icon: Icon(Icons.menu, color: primaryText),
-            onPressed: () => _scaffoldKey.currentState?.openDrawer(),
-          ),
           IconButton(
             tooltip: localizations.accountsTitle,
             onPressed: _openAccountMenu,
@@ -335,25 +296,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
         ),
       ),
     );
-  }
-
-  void _goHome() {
-    final currentLocale = widget.currentLocale ?? const Locale('en');
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(
-        builder:
-            (context) => AdminHome(
-              onLanguageChanged: widget.onLanguageChanged,
-              currentLocale: currentLocale,
-            ),
-      ),
-      (route) => false,
-    );
-  }
-
-  void _openPage(Widget page) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => page));
   }
 
   void _goToChangePassword(Locale currentLocale) {

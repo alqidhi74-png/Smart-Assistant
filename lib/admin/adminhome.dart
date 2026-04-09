@@ -270,18 +270,17 @@ class _AdminHomeState extends State<AdminHome> {
                                       children: [
                                         LayoutBuilder(
                                           builder: (context, constraints) {
-                                            final isNarrow =
-                                                constraints.maxWidth <
-                                                    AppLayout.breakpointNarrow;
                                             return GridView.count(
-                                              crossAxisCount: isNarrow ? 1 : 2,
+                                              crossAxisCount: 2,
                                               shrinkWrap: true,
                                               physics:
                                                   const NeverScrollableScrollPhysics(),
                                               crossAxisSpacing: 8,
                                               mainAxisSpacing: 8,
                                               childAspectRatio:
-                                                  isNarrow ? 2.3 : 2.0,
+                                                  constraints.maxWidth < 420
+                                                      ? 1.35
+                                                      : 2.0,
                                               children:
                                                   overviewItems
                                                       .map(
