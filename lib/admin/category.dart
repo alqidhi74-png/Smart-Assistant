@@ -1,5 +1,9 @@
-import 'package:flutter/material.dart';
+import 'dart:io';
+
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
@@ -7,6 +11,8 @@ import '../services/admin_bill_cleanup_service.dart';
 import '../services/categories_rtdb_hub.dart';
 import '../utils/bill_type_utils.dart';
 import '../utils/category_rtdb_style.dart';
+import '../utils/admin_pdf_io.dart';
+import '../utils/app_error_reporter.dart';
 import '../utils/app_snackbar.dart';
 import '../utils/account_actions.dart';
 import '../utils/loading_overlay.dart';
@@ -301,12 +307,158 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
     );
   }
 
-  void _downloadCategory(_CategoryItem item) {
-    AppSnackBar.showSuccess(
-      context,
-      'Downloading ${item.title} bills...',
-      duration: const Duration(seconds: 1),
+  Future<void> _downloadCategory(_CategoryItem item) async {
+    final loc =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    LoadingOverlay.show(context);
+    try {
+      final snap = await _billsRef.get();
+      final rows = _collectBillRowsForCategory(
+        snap.value,
+        item.title,
+      );
+      if (rows.isEmpty) {
+        if (mounted) {
+          AppSnackBar.showInfo(context, loc.categoryBillsPdfEmpty);
+        }
+        return;
+      }
+      final file = await _exportCategoryBillsToPdf(
+        categoryTitle: item.title,
+        categoryDescription: item.subtitle,
+        rows: rows,
+      );
+      if (!mounted) return;
+      AppSnackBar.showSuccess(context, loc.pdfExportSaved(file.path));
+    } catch (e, st) {
+      AppErrorReporter.debug('category pdf export', e, st);
+      if (mounted) {
+        AppSnackBar.showError(context, loc.pdfExportFailed);
+      }
+    } finally {
+      if (mounted) LoadingOverlay.hide();
+    }
+  }
+
+  /// Rows without header: userUid, billId, type, date, consumption, unit, amount, invoice, account.
+  List<List<String>> _collectBillRowsForCategory(
+    Object? data,
+    String categoryName,
+  ) {
+    final kind = BillTypeUtils.billKindForCategoryName(categoryName);
+    final targetKey = BillTypeUtils.canonicalTypeKey(categoryName);
+    final rows = <List<String>>[];
+    if (data is! Map) return rows;
+    for (final uidEntry in data.entries) {
+      final uid = uidEntry.key.toString();
+      final userBills = uidEntry.value;
+      if (userBills is! Map) continue;
+      for (final billEntry in userBills.entries) {
+        final billId = billEntry.key.toString();
+        final raw = billEntry.value;
+        if (raw is! Map) continue;
+        final t = raw['type']?.toString() ?? '';
+        final matches =
+            kind != null
+                ? BillTypeUtils.billMatchesKind(t, kind)
+                : BillTypeUtils.canonicalTypeKey(t).toLowerCase() ==
+                    targetKey.toLowerCase();
+        if (!matches) continue;
+        rows.add([
+          uid,
+          billId,
+          t,
+          raw['dateText']?.toString() ?? '',
+          raw['consumptionValue']?.toString() ?? '',
+          raw['consumptionUnit']?.toString() ?? '',
+          raw['totalAmount']?.toString() ?? '',
+          raw['invoiceNumber']?.toString() ?? '',
+          raw['accountNumber']?.toString() ?? '',
+        ]);
+      }
+    }
+    return rows;
+  }
+
+  Future<File> _exportCategoryBillsToPdf({
+    required String categoryTitle,
+    required String categoryDescription,
+    required List<List<String>> rows,
+  }) async {
+    final doc = pw.Document();
+    final tableData = [
+      [
+        'User UID',
+        'Bill ID',
+        'Type',
+        'Date',
+        'Consumption',
+        'Unit',
+        'Amount',
+        'Invoice',
+        'Account',
+      ],
+      ...rows,
+    ];
+    doc.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
+        build: (context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            children: [
+              pw.Text(
+                'Category bills export',
+                style: pw.TextStyle(
+                  fontSize: 18,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 6),
+              pw.Text(
+                categoryTitle,
+                style: pw.TextStyle(
+                  fontSize: 14,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              if (categoryDescription.trim().isNotEmpty) ...[
+                pw.SizedBox(height: 4),
+                pw.Text(
+                  categoryDescription.trim(),
+                  style: const pw.TextStyle(fontSize: 10),
+                ),
+              ],
+              pw.SizedBox(height: 12),
+              pw.TableHelper.fromTextArray(
+                data: tableData,
+                headerStyle: pw.TextStyle(
+                  fontWeight: pw.FontWeight.bold,
+                  color: PdfColors.white,
+                ),
+                headerDecoration: const pw.BoxDecoration(
+                  color: PdfColor.fromInt(0xFF1E88E5),
+                ),
+                cellAlignment: pw.Alignment.centerLeft,
+                cellStyle: const pw.TextStyle(fontSize: 7),
+                cellPadding: const pw.EdgeInsets.symmetric(
+                  vertical: 4,
+                  horizontal: 4,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
     );
+    final directory = await getAdminDownloadDirectory();
+    final base = safeExportFileName(categoryTitle);
+    final fileName =
+        'category_${base}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+    final file = File('${directory.path}/$fileName');
+    await file.writeAsBytes(await doc.save());
+    return file;
   }
 
   void _goHome() {
@@ -329,7 +481,7 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
   }
 
   Future<void> _logout() async {
-    await AccountActions.showLogoutChoiceAndExecute(context);
+    await AccountActions.showLogoutConfirmAndExecute(context);
   }
 
   void _showAddDialog() {

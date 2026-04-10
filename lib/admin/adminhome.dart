@@ -83,17 +83,8 @@ class _AdminHomeState extends State<AdminHome> {
     });
   }
 
-  Future<void> _openAccountMenu() async {
-    final currentLocale = widget.currentLocale ?? const Locale('en');
-    await AccountActions.showAccountSwitcherSheet(
-      context: context,
-      onLanguageChanged: widget.onLanguageChanged,
-      currentLocale: currentLocale,
-    );
-  }
-
   Future<void> _logout() async {
-    await AccountActions.showLogoutChoiceAndExecute(context);
+    await AccountActions.showLogoutConfirmAndExecute(context);
   }
 
   void _openPage(Widget page) {
@@ -131,17 +122,6 @@ class _AdminHomeState extends State<AdminHome> {
           ),
           onPressed: () => _scaffoldKey.currentState?.openDrawer(),
         ),
-        actions: [
-          IconButton(
-            tooltip: localizations.accountsTitle,
-            onPressed: _openAccountMenu,
-            icon: CircleAvatar(
-              radius: 18,
-              backgroundColor: Theme.of(context).colorScheme.surface,
-              child: Icon(Icons.person, color: AppColors.primary),
-            ),
-          ),
-        ],
       ),
       drawer: AdminSidebar(
         adminName: _fullName,

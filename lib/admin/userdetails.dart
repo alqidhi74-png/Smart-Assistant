@@ -4,10 +4,11 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
 import '../constants/app_layout.dart';
+import '../utils/admin_pdf_io.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
+import '../utils/app_error_reporter.dart';
 import '../utils/app_snackbar.dart';
 import '../utils/loading_overlay.dart';
 import '../utils/account_actions.dart';
@@ -599,15 +600,48 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
   }
 
   Future<void> _downloadAllUsers() async {
-    final file = await _exportUsersToPdf(_lastUsers, 'all_users');
-    if (!mounted) return;
-    AppSnackBar.showSuccess(context, 'Saved to ${file.path}');
+    final loc =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    LoadingOverlay.show(context);
+    try {
+      final file = await _exportUsersToPdf(_lastUsers, 'all_users');
+      if (!mounted) return;
+      AppSnackBar.showSuccess(context, loc.pdfExportSaved(file.path));
+    } catch (e, st) {
+      AppErrorReporter.debug('downloadAllUsers pdf', e, st);
+      if (mounted) {
+        AppSnackBar.showError(
+          context,
+          AppLocalizations.of(context)?.pdfExportFailed ?? 'Could not save PDF.',
+        );
+      }
+    } finally {
+      if (mounted) LoadingOverlay.hide();
+    }
   }
 
   Future<void> _downloadUser(_UserEntry user) async {
-    final file = await _exportUsersToPdf([user], _safeFileName(user.fullName));
-    if (!mounted) return;
-    AppSnackBar.showSuccess(context, 'Saved to ${file.path}');
+    final loc =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    LoadingOverlay.show(context);
+    try {
+      final file = await _exportUsersToPdf(
+        [user],
+        safeExportFileName(user.fullName),
+      );
+      if (!mounted) return;
+      AppSnackBar.showSuccess(context, loc.pdfExportSaved(file.path));
+    } catch (e, st) {
+      AppErrorReporter.debug('downloadUser pdf', e, st);
+      if (mounted) {
+        AppSnackBar.showError(
+          context,
+          AppLocalizations.of(context)?.pdfExportFailed ?? 'Could not save PDF.',
+        );
+      }
+    } finally {
+      if (mounted) LoadingOverlay.hide();
+    }
   }
 
   void _toggleBlockUser(_UserEntry user, AppLocalizations localizations) {
@@ -846,9 +880,9 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
         },
       ),
     );
-    final directory = await _getDownloadDirectory();
+    final directory = await getAdminDownloadDirectory();
     final fileName =
-        '${_safeFileName(baseName)}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        '${safeExportFileName(baseName)}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     final file = File('${directory.path}/$fileName');
     await file.writeAsBytes(await doc.save());
     return file;
@@ -856,27 +890,6 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
 
   String _normalizeSearch(String input) {
     return input.toLowerCase().replaceAll(RegExp(r'\s+'), '');
-  }
-
-  Future<Directory> _getDownloadDirectory() async {
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      final downloads = await getDownloadsDirectory();
-      if (downloads != null) {
-        return downloads;
-      }
-    }
-    if (Platform.isAndroid) {
-      final downloads = Directory('/storage/emulated/0/Download');
-      if (await downloads.exists()) {
-        return downloads;
-      }
-      final external = await getExternalStorageDirectory();
-      if (external != null) {
-        return external;
-      }
-    }
-    final documents = await getApplicationDocumentsDirectory();
-    return documents;
   }
 
   void _showUserDetails(_UserEntry user) {
@@ -973,12 +986,6 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
     );
   }
 
-  String _safeFileName(String input) {
-    final trimmed = input.trim().toLowerCase();
-    if (trimmed.isEmpty) return 'user';
-    return trimmed.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-  }
-
   int? _parseTimestamp(dynamic value) {
     if (value == null) return null;
     if (value is int) return value;
@@ -1021,7 +1028,7 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
   }
 
   Future<void> _logout() async {
-    await AccountActions.showLogoutChoiceAndExecute(context);
+    await AccountActions.showLogoutConfirmAndExecute(context);
   }
 }
 

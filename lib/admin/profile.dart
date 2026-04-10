@@ -91,17 +91,6 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
           icon: Icon(Icons.arrow_back, color: primaryText),
           onPressed: () => Navigator.pop(context),
         ),
-        actions: [
-          IconButton(
-            tooltip: localizations.accountsTitle,
-            onPressed: _openAccountMenu,
-            icon: CircleAvatar(
-              radius: 18,
-              backgroundColor: cardColor,
-              child: Icon(Icons.person, color: AppColors.primary),
-            ),
-          ),
-        ],
       ),
       backgroundColor: background,
       body: SafeArea(
@@ -311,15 +300,7 @@ class _AdminProfilePageState extends State<AdminProfilePage> {
     );
   }
 
-  Future<void> _openAccountMenu() async {
-    await AccountActions.showAccountSwitcherSheet(
-      context: context,
-      onLanguageChanged: widget.onLanguageChanged,
-      currentLocale: widget.currentLocale ?? const Locale('en'),
-    );
-  }
-
   Future<void> _logout() async {
-    await AccountActions.showLogoutChoiceAndExecute(context);
+    await AccountActions.showLogoutConfirmAndExecute(context);
   }
 }

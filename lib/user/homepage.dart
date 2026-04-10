@@ -14,7 +14,6 @@ import '../utils/bill_list_query.dart';
 import '../utils/bill_type_utils.dart';
 import '../utils/consumption_series.dart';
 import '../utils/smart_analytics_insights.dart';
-import '../utils/account_actions.dart';
 import '../utils/category_rtdb_style.dart';
 import '../services/categories_rtdb_hub.dart';
 import '../utils/loading_overlay.dart';
@@ -248,14 +247,6 @@ class _HomePageState extends State<HomePage> {
     return slice.reduce((a, b) => a + b) / slice.length;
   }
 
-  Future<void> _openAccountMenu() async {
-    await AccountActions.showAccountSwitcherSheet(
-      context: context,
-      onLanguageChanged: widget.onLanguageChanged,
-      currentLocale: widget.currentLocale ?? const Locale('en'),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final localizations =
@@ -284,9 +275,6 @@ class _HomePageState extends State<HomePage> {
                       fullName: widget.fullName,
                       subtitle: localizations.userHomePage,
                       welcomeText: localizations.welcome,
-                      onAvatarTap: () {
-                        _openAccountMenu();
-                      },
                     ),
                     const SizedBox(height: 10),
                                     _UploadBillCard(
@@ -687,6 +675,8 @@ class _HomePageState extends State<HomePage> {
                                         final isNarrow = constraints.maxWidth < 380;
                                         if (isNarrow) {
                                           return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
                                             children: [
                                               _ActionButton(
                                                 label: localizations.help,
@@ -853,13 +843,11 @@ class _HeaderSection extends StatelessWidget {
   final String welcomeText;
   final String fullName;
   final String subtitle;
-  final VoidCallback? onAvatarTap;
 
   const _HeaderSection({
     required this.welcomeText,
     required this.fullName,
     required this.subtitle,
-    this.onAvatarTap,
   });
 
   @override
@@ -868,33 +856,14 @@ class _HeaderSection extends StatelessWidget {
     final primaryText = isDark ? Colors.white : AppColors.textDark;
     final secondaryText =
         isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
-    final loc =
-        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Tooltip(
-          message: loc.accountsTitle,
-          child:
-              onAvatarTap == null
-                  ? CircleAvatar(
-                    radius: 22,
-                    backgroundColor: Theme.of(context).colorScheme.surface,
-                    child: Icon(Icons.person, color: AppColors.primary),
-                  )
-                  : Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      customBorder: const CircleBorder(),
-                      onTap: onAvatarTap,
-                      child: CircleAvatar(
-                        radius: 22,
-                        backgroundColor: Theme.of(context).colorScheme.surface,
-                        child: Icon(Icons.person, color: AppColors.primary),
-                      ),
-                    ),
-                  ),
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          child: Icon(Icons.person, color: AppColors.primary),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -1928,6 +1897,8 @@ class _UserCategoriesPageState extends State<_UserCategoriesPage> {
         backgroundColor: background,
         foregroundColor: textColor,
         elevation: 0,
+        centerTitle: true,
+        leading: BackButton(color: textColor),
       ),
       body:
           widget.categories.isEmpty
@@ -2092,6 +2063,7 @@ class _ActionButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(_cardRadius),
         child: Container(
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
           decoration: BoxDecoration(
             color: backgroundColor,
@@ -2104,6 +2076,7 @@ class _ActionButton extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 label,
+                textAlign: TextAlign.center,
                 style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
               ),
             ],

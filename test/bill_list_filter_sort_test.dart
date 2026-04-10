@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:smart_assistant/models/bill_summary.dart';
 import 'package:smart_assistant/utils/bill_list_query.dart';

@@ -10,7 +10,7 @@ import 'mybills.dart';
 import 'setting.dart';
 
 class UserNavBar extends StatefulWidget {
-  /// Firebase Auth uid — used to reset tab state when switching accounts.
+  /// Firebase Auth uid — used to reset tab state when the user session changes.
   final String uid;
   final String fullName;
   final Function(Locale)? onLanguageChanged;

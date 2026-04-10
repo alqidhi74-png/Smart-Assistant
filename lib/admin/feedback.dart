@@ -246,7 +246,7 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
   }
 
   Future<void> _logout() async {
-    await AccountActions.showLogoutChoiceAndExecute(context);
+    await AccountActions.showLogoutConfirmAndExecute(context);
   }
 }
 

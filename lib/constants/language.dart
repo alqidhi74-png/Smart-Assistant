@@ -135,6 +135,22 @@ class AppLocalizations {
   String get block => locale.languageCode == 'ar' ? 'حظر' : 'Block';
   String get unblock => locale.languageCode == 'ar' ? 'إلغاء الحظر' : 'Unblock';
   String get download => locale.languageCode == 'ar' ? 'تحميل' : 'Download';
+
+  String pdfExportSaved(String path) =>
+      locale.languageCode == 'ar'
+          ? 'تم حفظ ملف PDF:\n$path'
+          : 'PDF saved:\n$path';
+
+  String get pdfExportFailed =>
+      locale.languageCode == 'ar'
+          ? 'تعذّر حفظ ملف PDF.'
+          : 'Could not save PDF file.';
+
+  String get categoryBillsPdfEmpty =>
+      locale.languageCode == 'ar'
+          ? 'لا توجد فواتير لهذه الفئة للتصدير.'
+          : 'No bills found for this category to export.';
+
   String get joined => locale.languageCode == 'ar' ? 'تاريخ التسجيل' : 'Joined';
   String get status => locale.languageCode == 'ar' ? 'الحالة' : 'Status';
   String get admin => locale.languageCode == 'ar' ? 'ادمن' : 'Admin';
@@ -1041,103 +1057,6 @@ Account data and passwords are protected and processed securely. You may request
       locale.languageCode == 'ar'
           ? 'هل أنت متأكد من تسجيل الخروج؟'
           : 'Are you sure you want to logout?';
-
-  String get accountsTitle =>
-      locale.languageCode == 'ar' ? 'الحسابات' : 'Accounts';
-
-  String get addAccount =>
-      locale.languageCode == 'ar' ? 'إضافة حساب' : 'Add account';
-
-  String get accountLimitReached =>
-      locale.languageCode == 'ar'
-          ? 'يمكن حفظ حسابين فقط على هذا الجهاز. أزل حساباً من القائمة ثم أعد المحاولة.'
-          : 'Only two accounts can be saved on this device. Remove one from the list and try again.';
-
-  String get accountLimitReachedShort =>
-      locale.languageCode == 'ar'
-          ? 'الحد: حسابان محفوظان على الجهاز'
-          : 'Limit: two saved accounts on this device';
-
-  String get accountNotSavedDeviceLimit =>
-      locale.languageCode == 'ar'
-          ? 'تم تسجيل الدخول. لم يُحفظ الحساب في القائمة السريعة لأن الحد هو حسابان على هذا الجهاز.'
-          : 'Signed in. This account was not added to quick switch (limit of two on this device).';
-
-  String get loginAddAccountTitle =>
-      locale.languageCode == 'ar'
-          ? 'إضافة حساب آخر'
-          : 'Add another account';
-
-  String get currentAccountBadge =>
-      locale.languageCode == 'ar' ? 'الحالي' : 'Current';
-
-  String get accountSwitchError =>
-      locale.languageCode == 'ar'
-          ? 'تعذر تبديل الحساب. حاول تسجيل الدخول يدوياً.'
-          : 'Could not switch account. Try signing in manually.';
-
-  String get accountSwitchEnterPasswordTitle =>
-      locale.languageCode == 'ar'
-          ? 'أدخل كلمة المرور لهذا الحساب (مرة واحدة)'
-          : 'Enter password for this account (once)';
-
-  String get accountSwitchEnterPasswordHint =>
-      locale.languageCode == 'ar'
-          ? 'يُحفظ على الجهاز بشكل آمن للتبديل السريع لاحقاً.'
-          : 'Saved securely on this device for quick switching later.';
-
-  String get accountSwitchConfirm =>
-      locale.languageCode == 'ar' ? 'متابعة' : 'Continue';
-
-  String get logoutChooseTitle =>
-      locale.languageCode == 'ar'
-          ? 'كيف تريد تسجيل الخروج؟'
-          : 'How would you like to sign out?';
-
-  String get logoutFromCurrentDevice =>
-      locale.languageCode == 'ar'
-          ? 'من هذا الحساب فقط'
-          : 'This account only';
-
-  String get logoutFromCurrentDeviceSubtitle =>
-      locale.languageCode == 'ar'
-          ? 'يبقى باقي الحسابات المحفوظة على هذا الجهاز'
-          : 'Other saved accounts stay on this device';
-
-  String get logoutFromAllAccounts =>
-      locale.languageCode == 'ar'
-          ? 'من جميع الحسابات'
-          : 'From all accounts';
-
-  String get logoutFromAllAccountsSubtitle =>
-      locale.languageCode == 'ar'
-          ? 'حذف كل الحسابات المحفوظة من هذا الجهاز'
-          : 'Remove all saved accounts from this device';
-
-  String get savedAccountsQuickLogin =>
-      locale.languageCode == 'ar'
-          ? 'حساباتك على هذا الجهاز'
-          : 'Your accounts on this device';
-
-  String get removeSavedAccountAction =>
-      locale.languageCode == 'ar'
-          ? 'إزالة من الجهاز'
-          : 'Remove from this device';
-
-  String get removeSavedAccountTitle =>
-      locale.languageCode == 'ar'
-          ? 'إزالة الحساب المحفوظ؟'
-          : 'Remove saved account?';
-
-  String removeSavedAccountMessage(String email) =>
-      locale.languageCode == 'ar'
-          ? 'سيتم حذف بيانات تسجيل الدخول المحفوظة لـ ($email) من هذا الجهاز فقط. يمكنك تسجيل الدخول لاحقاً.'
-          : 'Saved sign-in for ($email) will be removed from this device only. You can sign in again anytime.';
-
-  String get accountRemovedFromDevice =>
-      locale.languageCode == 'ar'
-          ? 'تمت إزالة الحساب من هذا الجهاز'
-          : 'Account removed from this device';
 
   String get cancel => locale.languageCode == 'ar' ? 'إلغاء' : 'Cancel';
   String get add => locale.languageCode == 'ar' ? 'إضافة' : 'Add';

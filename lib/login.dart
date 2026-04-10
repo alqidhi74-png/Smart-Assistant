@@ -15,13 +15,11 @@ import 'services/multi_account_service.dart';
 class Login extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
   final Locale? currentLocale;
-  final bool addAccountMode;
 
   const Login({
     super.key,
     this.onLanguageChanged,
     this.currentLocale,
-    this.addAccountMode = false,
   });
 
   @override
@@ -129,27 +127,8 @@ class LoginState extends State<Login> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              if (widget.addAccountMode) ...[
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: IconButton(
-                                    onPressed:
-                                        () =>
-                                            Navigator.of(
-                                              context,
-                                              rootNavigator: true,
-                                            ).pop(),
-                                    icon: Icon(
-                                      Icons.arrow_back,
-                                      color: titleColor,
-                                    ),
-                                  ),
-                                ),
-                              ],
                               Text(
-                                widget.addAccountMode
-                                    ? localizations.loginAddAccountTitle
-                                    : localizations.login,
+                                localizations.login,
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
@@ -202,8 +181,7 @@ class LoginState extends State<Login> {
                                 },
                               ),
                               const SizedBox(height: 6),
-                              if (!widget.addAccountMode)
-                                CheckboxListTile(
+                              CheckboxListTile(
                                   contentPadding: EdgeInsets.zero,
                                   value: _rememberMe,
                                   onChanged: (val) {
@@ -227,10 +205,7 @@ class LoginState extends State<Login> {
                                 alignment: Alignment.center,
                                 child: TextButton(
                                   onPressed: () {
-                                    Navigator.of(
-                                      context,
-                                      rootNavigator: widget.addAccountMode,
-                                    ).push(
+                                    Navigator.of(context).push(
                                       MaterialPageRoute(
                                         builder:
                                             (context) => ForgotPasswordScreen(
@@ -283,10 +258,7 @@ class LoginState extends State<Login> {
                               const SizedBox(height: 10),
                               TextButton(
                                 onPressed: () {
-                                  Navigator.of(
-                                    context,
-                                    rootNavigator: widget.addAccountMode,
-                                  ).push(
+                                  Navigator.of(context).push(
                                     MaterialPageRoute(
                                       builder:
                                           (context) => Registration(
@@ -441,21 +413,6 @@ class LoginState extends State<Login> {
         final localizationsEarly =
             AppLocalizations.of(context) ??
             AppLocalizations(const Locale('en'));
-        if (widget.addAccountMode) {
-          final saved = await MultiAccountService.getSavedAccounts();
-          final alreadySaved = saved.any(
-            (a) => a.email.toLowerCase() == emailTrim.toLowerCase(),
-          );
-          if (!alreadySaved &&
-              saved.length >= MultiAccountService.maxSavedAccounts) {
-            if (!mounted) return;
-            AppSnackBar.showError(
-              context,
-              localizationsEarly.accountLimitReached,
-            );
-            return;
-          }
-        }
 
         final credential = await FirebaseAuth.instance
             .signInWithEmailAndPassword(
@@ -517,56 +474,32 @@ class LoginState extends State<Login> {
           }
 
           final name = data['fullName']?.toString() ?? '';
-          final savedOk = await MultiAccountService.recordSuccessfulLogin(
+          await MultiAccountService.recordSuccessfulLogin(
             uid: uid,
             email: emailTrim,
             password: passwordController.text.trim(),
             displayName: name,
           );
-          if (!savedOk) {
-            if (widget.addAccountMode) {
-              await FirebaseAuth.instance.signOut();
-              if (!mounted) return;
-              AppSnackBar.showError(context, localizations.accountLimitReached);
-              return;
-            }
-            if (!mounted) return;
-            AppSnackBar.showInfo(
-              context,
-              localizations.accountNotSavedDeviceLimit,
-            );
-          }
 
           final prefs = await SharedPreferences.getInstance();
-          if (!widget.addAccountMode) {
-            if (_rememberMe) {
-              await prefs.setBool('remember_me', true);
-              await prefs.setString(
-                'remember_email',
-                emailController.text.trim(),
-              );
-              await prefs.setString(
-                'remember_password',
-                passwordController.text,
-              );
-            } else {
-              await prefs.setBool('remember_me', false);
-              await prefs.remove('remember_email');
-              await prefs.remove('remember_password');
-            }
+          if (_rememberMe) {
+            await prefs.setBool('remember_me', true);
+            await prefs.setString(
+              'remember_email',
+              emailController.text.trim(),
+            );
+            await prefs.setString(
+              'remember_password',
+              passwordController.text,
+            );
+          } else {
+            await prefs.setBool('remember_me', false);
+            await prefs.remove('remember_email');
+            await prefs.remove('remember_password');
           }
 
           if (!mounted) return;
 
-          if (widget.addAccountMode) {
-            // Pop after this frame so AuthGate / Navigator are not updating the
-            // route table in the same build phase (avoids duplicate Navigator GlobalKey).
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              Navigator.of(context, rootNavigator: true).pop(true);
-            });
-            return;
-          }
           Navigator.of(context).popUntil((route) => route.isFirst);
         } else {
           if (!mounted) return;

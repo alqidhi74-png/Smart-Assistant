@@ -568,18 +568,12 @@ class RegistrationState extends State<Registration> {
 
         final signedIn = FirebaseAuth.instance.currentUser;
         if (signedIn != null) {
-          final savedOk = await MultiAccountService.recordSuccessfulLogin(
+          await MultiAccountService.recordSuccessfulLogin(
             uid: signedIn.uid,
             email: emailController.text.trim(),
             password: passwordController.text.trim(),
             displayName: fullNameController.text.trim(),
           );
-          if (!savedOk && mounted) {
-            AppSnackBar.showInfo(
-              context,
-              localizations.accountNotSavedDeviceLimit,
-            );
-          }
         }
         if (!mounted) return;
 

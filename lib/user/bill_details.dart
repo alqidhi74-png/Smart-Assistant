@@ -44,6 +44,8 @@ class BillDetailsPage extends StatelessWidget {
         backgroundColor: background,
         elevation: 0,
         foregroundColor: textColor,
+        centerTitle: true,
+        leading: BackButton(color: textColor),
       ),
       body: SafeArea(
         child: SingleChildScrollView(

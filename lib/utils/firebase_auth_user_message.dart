@@ -8,7 +8,6 @@ enum FirebaseAuthMessageContext {
   register,
   forgotPassword,
   changePassword,
-  accountSwitch,
 }
 
 /// Single place for [FirebaseAuthException.code] → user-visible [String].
@@ -72,13 +71,6 @@ String firebaseAuthUserMessage(
           return loc.requiresRecentLogin;
         default:
           return loc.passwordChangeError;
-      }
-    case FirebaseAuthMessageContext.accountSwitch:
-      switch (e.code) {
-        case 'user-disabled':
-          return loc.userDisabled;
-        default:
-          return loc.accountSwitchError;
       }
   }
 }

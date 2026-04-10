@@ -139,6 +139,6 @@ class _AdminAddCategoryPageState extends State<AdminAddCategoryPage> {
   }
 
   Future<void> _logout() async {
-    await AccountActions.showLogoutChoiceAndExecute(context);
+    await AccountActions.showLogoutConfirmAndExecute(context);
   }
 }
