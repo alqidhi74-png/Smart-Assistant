@@ -672,54 +672,6 @@ class _HomePageState extends State<HomePage> {
                                     const SizedBox(height: 8),
                                     LayoutBuilder(
                                       builder: (context, constraints) {
-                                        final isNarrow = constraints.maxWidth < 380;
-                                        if (isNarrow) {
-                                          return Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
-                                            children: [
-                                              _ActionButton(
-                                                label: localizations.help,
-                                                icon: Icons.help_outline,
-                                                backgroundColor: const Color(
-                                                  0xFFFFF1B8,
-                                                ),
-                                                iconColor: AppColors.textDark,
-                                                labelColor: AppColors.textDark,
-                                                onTap: () {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder:
-                                                          (context) =>
-                                                              const HelpPage(),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                              const SizedBox(height: 8),
-                                              _ActionButton(
-                                                label: localizations.feedback,
-                                                icon: Icons.feedback_outlined,
-                                                backgroundColor: const Color(
-                                                  0xFFC8F7C5,
-                                                ),
-                                                iconColor: AppColors.textDark,
-                                                labelColor: AppColors.textDark,
-                                                onTap: () {
-                                                  Navigator.push(
-                                                    context,
-                                                    MaterialPageRoute(
-                                                      builder:
-                                                          (context) =>
-                                                              const FeedbackPage(),
-                                                    ),
-                                                  );
-                                                },
-                                              ),
-                                            ],
-                                          );
-                                        }
                                         return Row(
                                           children: [
                                             Expanded(

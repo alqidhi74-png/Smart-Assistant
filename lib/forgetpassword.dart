@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:email_validator/email_validator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -24,10 +26,37 @@ class ForgotPasswordScreen extends StatefulWidget {
   State<ForgotPasswordScreen> createState() => ForgotPasswordScreenState();
 }
 
-class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+class ForgotPasswordScreenState extends State<ForgotPasswordScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController emailController = TextEditingController();
   final formKey = GlobalKey<FormState>();
   bool loading = false;
+  bool _animateIn = false;
+  AnimationController? _bgController;
+
+  AnimationController get _animatedBgController {
+    return _bgController ??= AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 5),
+    )..repeat();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _animatedBgController;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _animateIn = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _bgController?.dispose();
+    emailController.dispose();
+    super.dispose();
+  }
 
   Future<void> resetPassword() async {
     if (!(formKey.currentState?.validate() ?? false)) return;
@@ -89,63 +118,135 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     final titleColor = isDark ? Colors.white : AppColors.textDark;
     final subtitleColor =
         isDark ? const Color(0xFF9FB1C7) : AppColors.textSecondary;
+    final accentBorder =
+        isDark
+            ? AppColors.secondary.withValues(alpha: 0.45)
+            : AppColors.primary.withValues(alpha: 0.32);
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient:
-              isDark
-                  ? const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFF0A1628), Color(0xFF0B1E39)],
-                  )
-                  : const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0xFFF3F6FB), Color(0xFFFFFFFF)],
-                  ),
-        ),
-        child: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppLayout.pagePaddingH,
-                  vertical: 20,
-                ),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: AppLayout.formMaxWidth,
+      body: Stack(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              gradient:
+                  isDark
+                      ? const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFF081427), Color(0xFF0F325C)],
+                      )
+                      : LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          AppColors.primary.withValues(alpha: 0.18),
+                          AppColors.secondary.withValues(alpha: 0.14),
+                          Colors.white,
+                        ],
                       ),
-                      child: Container(
-                        padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
-                        decoration: BoxDecoration(
-                          color:
-                              isDark
-                                  ? const Color(0xFF121E33)
-                                  : AppColors.backgroundWhite,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: cardBorder),
-                          boxShadow: [
-                            BoxShadow(
-                              color:
-                                  isDark
-                                      ? Colors.black.withValues(alpha: 0.45)
-                                      : Colors.black.withValues(alpha: 0.08),
-                              blurRadius: 24,
-                              offset: const Offset(0, 14),
-                            ),
-                          ],
+            ),
+          ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 700),
+            curve: Curves.easeOutCubic,
+            top: _animateIn ? -40 : -80,
+            right: _animateIn ? -20 : -60,
+            child: AnimatedBuilder(
+              animation: _animatedBgController,
+              builder: (context, child) {
+                final t = _animatedBgController.value * 2 * math.pi;
+                return Transform.translate(
+                  offset: Offset(math.sin(t) * 14, math.cos(t * 1.2) * 10),
+                  child: Transform.scale(
+                    scale: 1 + math.sin(t) * 0.12,
+                    child: child,
+                  ),
+                );
+              },
+              child: _AuthOrb(
+                size: 180,
+                color: AppColors.primary.withValues(alpha: isDark ? 0.28 : 0.2),
+              ),
+            ),
+          ),
+          AnimatedPositioned(
+            duration: const Duration(milliseconds: 800),
+            curve: Curves.easeOutCubic,
+            bottom: _animateIn ? -60 : -100,
+            left: _animateIn ? -30 : -70,
+            child: AnimatedBuilder(
+              animation: _animatedBgController,
+              builder: (context, child) {
+                final t = _animatedBgController.value * 2 * math.pi;
+                return Transform.translate(
+                  offset: Offset(math.cos(t * 0.9) * 12, math.sin(t) * 14),
+                  child: Transform.scale(
+                    scale: 1 + math.cos(t) * 0.1,
+                    child: child,
+                  ),
+                );
+              },
+              child: _AuthOrb(
+                size: 220,
+                color:
+                    AppColors.secondary.withValues(alpha: isDark ? 0.3 : 0.22),
+              ),
+            ),
+          ),
+          SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: AppLayout.pagePaddingH,
+                    vertical: 20,
+                  ),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: AppLayout.formMaxWidth,
                         ),
-                        child: Form(
-                          key: formKey,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
+                        child: AnimatedSlide(
+                          offset: _animateIn ? Offset.zero : const Offset(0, 0.08),
+                          duration: const Duration(milliseconds: 900),
+                          curve: Curves.easeOutCubic,
+                          child: AnimatedOpacity(
+                            opacity: _animateIn ? 1 : 0,
+                            duration: const Duration(milliseconds: 850),
+                            child: Container(
+                              padding: const EdgeInsets.fromLTRB(22, 26, 22, 22),
+                              decoration: BoxDecoration(
+                                color:
+                                    isDark
+                                        ? const Color(0xFF121E33)
+                                        : AppColors.backgroundWhite,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: accentBorder),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color:
+                                        isDark
+                                            ? Colors.black.withValues(alpha: 0.45)
+                                            : Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 24,
+                                    offset: const Offset(0, 14),
+                                  ),
+                                  BoxShadow(
+                                    color: AppColors.primary.withValues(
+                                      alpha: isDark ? 0.16 : 0.12,
+                                    ),
+                                    blurRadius: 26,
+                                    spreadRadius: 1,
+                                  ),
+                                ],
+                              ),
+                              child: Form(
+                                key: formKey,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  children: [
                               Align(
                                 alignment: Alignment.centerLeft,
                                 child: IconButton(
@@ -269,17 +370,38 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                       ),
                                     ),
                                   ),
-                            ],
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
-        ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AuthOrb extends StatelessWidget {
+  final double size;
+  final Color color;
+
+  const _AuthOrb({required this.size, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
       ),
     );
   }
