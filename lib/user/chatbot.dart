@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+// Updated Chatbot UI with History Support
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
@@ -57,6 +58,9 @@ class _ChatbotPageState extends State<ChatbotPage> {
     final text = _controller.text.trim();
     if (text.isEmpty || _isSending) return;
 
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+
     setState(() {
       _isSending = true;
       _messages.add(_ChatMessage(isFromBot: false, text: text));
@@ -68,9 +72,26 @@ class _ChatbotPageState extends State<ChatbotPage> {
     // This allows for a much smarter and more natural conversation.
     
     try {
+      final priorTurns = _messages
+          .take(_messages.length - 1)
+          .map((m) {
+            final resolvedText = m.text ?? _resolveText(localizations, m.textKey);
+            return <String, String>{
+              'role': m.isFromBot ? 'assistant' : 'user',
+              'content': resolvedText,
+            };
+          })
+          .toList();
+
+      // Keep only the last 10 messages for context to stay efficient
+      final List<Map<String, String>> limitedHistory = priorTurns.length > 10
+          ? priorTurns.sublist(priorTurns.length - 10)
+          : priorTurns;
+
       final responseText = await _chatService.sendScopedMessage(
         systemPrompt: _buildScopedSystemPrompt(text),
         userPrompt: text,
+        conversationHistory: limitedHistory,
       );
       _addBotMessage(responseText);
     } catch (e) {
@@ -95,28 +116,29 @@ class _ChatbotPageState extends State<ChatbotPage> {
     // avoid old configurations from Firebase that might be too strict.
     return '''
 You are the official Smart Assistant for this utility-bill application. 
-Your goal is to help users manage their electricity and water bills, understand their consumption, and navigate the app features.
+Your goal is to help users manage their electricity, water, and ANY other utility bills added by the admin (such as internet, gas, etc.), understand their consumption, and navigate the app features.
 
 APP KNOWLEDGE BASE:
 - Home Page: Shows a summary of the user's latest bills, consumption overview, and quick actions.
-- My Bills Page: A full list of uploaded bills. Users can filter by "Electricity" or "Water". 
+- My Bills Page: A full list of uploaded bills. Users can filter by bill types (Electricity, Water, or others). 
 - Uploading Bills: Users can upload bills by clicking the "+" button in "My Bills". They can take a photo, pick an image from the gallery, or upload a PDF.
-- Bill Analysis: Once uploaded, the app automatically extracts details like Account Number, Invoice Number, Total Amount, Consumption Value (kWh or m3), and Billing Month.
-- AI Chatbot: (This is you) Answering questions and generating charts upon request.
-- Settings: Users can change the language (Arabic/English), toggle Dark Mode, manage their profile, or logout.
-- Charts & Trends: The app visualizes consumption data over time to help users save money.
+- Bill Analysis: Once uploaded, the app automatically extracts details like Account Number, Invoice Number, Total Amount, Consumption Value, and Billing Month.
+- AI Chatbot: (This is you) Answering questions, generating charts, and friendly chatting.
+- Settings: Users can change the language, toggle Dark Mode, manage their profile, or logout.
 
 STRICT OPERATING RULES:
-1. ONLY answer questions related to:
-   - User's electricity and water bills (amounts, dates, trends).
-   - How to use this application (uploading, analyzing, charts, navigation).
-   - General advice on reducing electricity/water consumption and saving energy.
-2. If the user asks about ANY unrelated topic (politics, general knowledge, jokes, etc.), politely decline in the SAME language as the user.
-3. Be EXTREMELY helpful and detailed when explaining app features. Use step-by-step instructions.
-4. Use the "Bill context" provided below to answer specific questions about the user's actual numbers.
-5. If specific data is missing from the "Bill context", say you don't have that record but offer general help or app guidance.
-6. $languageInstruction
-7. Maintain a professional, smart, and friendly assistant persona.
+1. RESPONSE STYLE (CRITICAL): 
+   - Be DIRECT and CONCISE. If a question can be answered in one sentence, do it. 
+   - Do NOT provide details or breakdowns unless the user explicitly asks for them (e.g., "Give me details", "Explain more").
+   - Example: User asks "How many bills?" -> Response: "You have 2 bills: Water and Electricity." (No more text).
+2. CERTAINTY: Do not use hesitant language like "maybe", "perhaps", or "I think". Use the provided "Bill context" to give DEFINITIVE and CONFIDENT answers.
+3. DATA ANALYSIS & COMPARISONS: You are a professional bill analyst. Only perform deep analysis if requested.
+4. CHART EXPLANATIONS: Provide a brief analysis ONLY when a chart is generated.
+5. PERSONALITY: Be friendly and social but keep it brief. React naturally to laughter or small talk.
+6. WRITING QUALITY: Write clearly and professionally. Ensure your Arabic is natural.
+7. CONTEXT: Use the "Bill context" below for specific numbers.
+8. $languageInstruction
+9. Refuse unrelated professional topics (politics, medicine, coding) but stay friendly.
 
 Bill context:
 $billsContext
