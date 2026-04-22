@@ -10,6 +10,7 @@ import 'constants/app_layout.dart';
 import 'constants/colors.dart';
 import 'services/multi_account_service.dart';
 import 'utils/app_snackbar.dart';
+import 'utils/app_language_sheet.dart';
 import 'constants/language.dart';
 
 class Registration extends StatefulWidget {
@@ -89,7 +90,7 @@ class RegistrationState extends State<Registration>
     final isDark = theme.brightness == Brightness.dark;
     final localizations =
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
-    final currentLocale = widget.currentLocale ?? const Locale('en');
+    final currentLocale = Localizations.localeOf(context);
     final cardBorder =
         isDark ? const Color(0xFF223552) : const Color(0xFFE6EBF2);
     final titleColor = isDark ? Colors.white : AppColors.textDark;
@@ -361,6 +362,7 @@ class RegistrationState extends State<Registration>
                                           fontWeight: FontWeight.w700,
                                           color: titleColor,
                                         ),
+                                        textAlign: TextAlign.start,
                                       ),
                                       const SizedBox(height: 10),
                                       _buildPasswordRequirement(
@@ -505,6 +507,53 @@ class RegistrationState extends State<Registration>
               },
             ),
           ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 10,
+            right: currentLocale.languageCode == 'ar' ? null : 20,
+            left: currentLocale.languageCode == 'ar' ? 20 : null,
+            child: InkWell(
+              onTap:
+                  () => showAppLanguageSheet(
+                    context,
+                    onLanguageChanged: widget.onLanguageChanged,
+                  ),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : theme.primaryColor)
+                      .withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: (isDark ? Colors.white : theme.primaryColor)
+                        .withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.language,
+                      size: 16,
+                      color: isDark ? Colors.white : theme.primaryColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      currentLocale.languageCode == 'ar' ? 'العربية' : 'English',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : theme.primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -636,6 +685,7 @@ class RegistrationState extends State<Registration>
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
             isValid ? Icons.check_circle : Icons.cancel,
@@ -643,7 +693,13 @@ class RegistrationState extends State<Registration>
             size: 20,
           ),
           const SizedBox(width: 8),
-          Text(text, style: TextStyle(color: textColor, fontSize: 14)),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: textColor, fontSize: 14),
+              textAlign: TextAlign.start,
+            ),
+          ),
         ],
       ),
     );

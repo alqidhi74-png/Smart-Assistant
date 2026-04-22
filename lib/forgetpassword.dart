@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:email_validator/email_validator.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'utils/app_language_sheet.dart';
 
 import 'utils/loading_overlay.dart';
 import 'package:smart_assistant/utils/app_snackbar.dart';
@@ -112,6 +113,7 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen>
     final theme = Theme.of(context);
     final localizations =
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final currentLocale = Localizations.localeOf(context);
     final isDark = theme.brightness == Brightness.dark;
     final cardBorder =
         isDark ? const Color(0xFF223552) : const Color(0xFFE6EBF2);
@@ -381,6 +383,53 @@ class ForgotPasswordScreenState extends State<ForgotPasswordScreen>
                   ),
                 );
               },
+            ),
+          ),
+          Positioned(
+            top: 40,
+            right: currentLocale.languageCode == 'ar' ? null : 20,
+            left: currentLocale.languageCode == 'ar' ? 20 : null,
+            child: InkWell(
+              onTap:
+                  () => showAppLanguageSheet(
+                    context,
+                    onLanguageChanged: widget.onLanguageChanged,
+                  ),
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: (isDark ? Colors.white : theme.primaryColor)
+                      .withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: (isDark ? Colors.white : theme.primaryColor)
+                        .withOpacity(0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.language,
+                      size: 16,
+                      color: isDark ? Colors.white : theme.primaryColor,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      currentLocale.languageCode == 'ar' ? 'العربية' : 'English',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : theme.primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ],

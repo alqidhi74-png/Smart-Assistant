@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'constants/language.dart';
 import 'login.dart';
 import 'register.dart';
+import 'utils/app_language_sheet.dart';
 
 class LandingPage extends StatelessWidget {
   final Function(Locale)? onLanguageChanged;
@@ -57,40 +58,87 @@ class LandingPage extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Align(
-                            alignment: Alignment.topLeft,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 6,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      isDark
+                                          ? Colors.white.withValues(alpha: 0.12)
+                                          : scheme.primary.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.bolt,
+                                      color: isDark ? Colors.white : scheme.primary,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      localizations.landingBadge,
+                                      style: TextStyle(
+                                        color: isDark ? Colors.white : scheme.onSurface,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              decoration: BoxDecoration(
-                                color:
-                                    isDark
-                                        ? Colors.white.withValues(alpha: 0.12)
-                                        : scheme.primary.withValues(alpha: 0.12),
+                              InkWell(
+                                onTap: () => showAppLanguageSheet(
+                                  context,
+                                  onLanguageChanged: onLanguageChanged,
+                                ),
                                 borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.bolt,
-                                    color: isDark ? Colors.white : scheme.primary,
-                                    size: 16,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
                                   ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    localizations.landingBadge,
-                                    style: TextStyle(
-                                      color: isDark ? Colors.white : scheme.onSurface,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        (isDark ? Colors.white : scheme.primary)
+                                            .withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color:
+                                          (isDark ? Colors.white : scheme.primary)
+                                              .withValues(alpha: 0.2),
                                     ),
                                   ),
-                                ],
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.language,
+                                        size: 16,
+                                        color: isDark ? Colors.white : scheme.primary,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        activeLocale.languageCode == 'ar'
+                                            ? 'العربية'
+                                            : 'English',
+                                        style: TextStyle(
+                                          color: isDark ? Colors.white : scheme.primary,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
+                            ],
                           ),
                           const SizedBox(height: 20),
                           const Spacer(flex: 2),

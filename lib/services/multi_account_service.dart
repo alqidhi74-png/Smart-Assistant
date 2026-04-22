@@ -1,10 +1,8 @@
 import 'dart:convert';
-
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../data/bill_store.dart';
 
 /// Persists credentials for at most **one** account on this device (remember-me / quick metadata).
