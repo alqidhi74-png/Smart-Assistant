@@ -193,6 +193,21 @@ class _AdminHomeState extends State<AdminHome> {
                                       categoryItems,
                                       billCounts,
                                     );
+                                    final displayCategories =
+                                        categories
+                                            .map(
+                                              (item) => _OverviewItem(
+                                                title: _localizedCategoryTitle(
+                                                  item.title,
+                                                  localizations,
+                                                ),
+                                                value: item.value,
+                                                icon: item.icon,
+                                                color: item.color,
+                                                count: item.count,
+                                              ),
+                                            )
+                                            .toList();
                                     final totalBills = billCounts.values
                                         .fold<int>(
                                           0,
@@ -216,7 +231,11 @@ class _AdminHomeState extends State<AdminHome> {
                                         categories
                                             .map(
                                               (item) => _CategoryChartSeries(
-                                                title: item.title,
+                                                // Keep localized labels for charts; data mapping still uses raw [type].
+                                                title: _localizedCategoryTitle(
+                                                  item.title,
+                                                  localizations,
+                                                ),
                                                 color: item.color,
                                                 values: _buildMonthlySeries(
                                                   bills,
@@ -242,7 +261,7 @@ class _AdminHomeState extends State<AdminHome> {
                                         color: const Color(0xFFF2C84B),
                                         count: _userCount,
                                       ),
-                                      ...categories,
+                                      ...displayCategories,
                                     ];
                                     return Column(
                                       crossAxisAlignment:
@@ -295,7 +314,7 @@ class _AdminHomeState extends State<AdminHome> {
                                               localizations.billsDistribution,
                                           minHeight: 228,
                                           child: _BillsDistributionChart(
-                                            items: categories,
+                                            items: displayCategories,
                                             emptyText:
                                                 localizations.noDataFound,
                                           ),
@@ -333,6 +352,13 @@ class _AdminHomeState extends State<AdminHome> {
         ),
       ),
     );
+  }
+
+  String _localizedCategoryTitle(String raw, AppLocalizations loc) {
+    final key = BillTypeUtils.canonicalTypeKey(raw).toLowerCase();
+    if (key == 'water') return loc.billTypeWater;
+    if (key == 'electricity') return loc.billTypeElectricity;
+    return raw;
   }
 
   Widget _buildOverviewCard({

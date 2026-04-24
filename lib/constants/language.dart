@@ -154,6 +154,12 @@ class AppLocalizations {
   String get joined => locale.languageCode == 'ar' ? 'تاريخ التسجيل' : 'Joined';
   String get status => locale.languageCode == 'ar' ? 'الحالة' : 'Status';
   String get admin => locale.languageCode == 'ar' ? 'ادمن' : 'Admin';
+  String get role => locale.languageCode == 'ar' ? 'الدور' : 'Role';
+  String get userSingular => locale.languageCode == 'ar' ? 'مستخدم' : 'User';
+  String get userName => locale.languageCode == 'ar' ? 'اسم المستخدم' : 'User Name';
+  String get unknownUser =>
+      locale.languageCode == 'ar' ? 'مستخدم غير معروف' : 'Unknown User';
+  String get uidLabel => locale.languageCode == 'ar' ? 'معرّف المستخدم' : 'UID';
   String get makeAdmin =>
       locale.languageCode == 'ar' ? 'تعيين ادمن' : 'Make Admin';
   String get revokeAdmin =>

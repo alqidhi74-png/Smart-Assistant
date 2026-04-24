@@ -373,7 +373,7 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
                           Expanded(
                             child: Text(
                               user.fullName.isEmpty
-                                  ? 'Unknown User'
+                                  ? localizations.unknownUser
                                   : user.fullName,
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
@@ -613,10 +613,7 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
     } catch (e, st) {
       AppErrorReporter.debug('downloadAllUsers pdf', e, st);
       if (mounted) {
-        AppSnackBar.showError(
-          context,
-          AppLocalizations.of(context)?.pdfExportFailed ?? 'Could not save PDF.',
-        );
+        AppSnackBar.showError(context, loc.pdfExportFailed);
       }
     } finally {
       if (mounted) LoadingOverlay.hide();
@@ -637,10 +634,7 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
     } catch (e, st) {
       AppErrorReporter.debug('downloadUser pdf', e, st);
       if (mounted) {
-        AppSnackBar.showError(
-          context,
-          AppLocalizations.of(context)?.pdfExportFailed ?? 'Could not save PDF.',
-        );
+        AppSnackBar.showError(context, loc.pdfExportFailed);
       }
     } finally {
       if (mounted) LoadingOverlay.hide();
@@ -835,7 +829,14 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
   ) async {
     final doc = pw.Document();
     final rows = [
-      ['User Name', 'Email', 'Phone', 'Status', 'Role', 'Joined'],
+      [
+        'User Name',
+        'Email',
+        'Phone',
+        'Status',
+        'Role',
+        'Joined',
+      ],
       ...users.map((user) {
         return [
           user.fullName.isEmpty ? 'Unknown User' : user.fullName,
@@ -936,7 +937,9 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      user.fullName.isEmpty ? 'User Details' : user.fullName,
+                      user.fullName.isEmpty
+                          ? localizations.userDetailsPage
+                          : user.fullName,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppColors.textDark,
@@ -957,7 +960,7 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
                           ? localizations.adminYes
                           : localizations.adminNo,
                     ),
-                    _buildDetailRow('UID', user.uid),
+                    _buildDetailRow(localizations.uidLabel, user.uid),
                     _buildDetailRow(
                       localizations.joined,
                       _formatJoinedDate(user.createdAt),

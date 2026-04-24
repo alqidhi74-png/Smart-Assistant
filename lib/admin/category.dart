@@ -229,7 +229,7 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  item.title,
+                  _localizedCategoryName(item.title, localizations),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: textOnCard,
@@ -237,7 +237,7 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  item.subtitle,
+                  _localizedCategorySubtitle(item.subtitle, item.title, localizations),
                   style: TextStyle(
                     fontSize: 11,
                     color: textOnCard,
@@ -1041,6 +1041,39 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
   int _countForCategoryName(String name, Map<String, int> billCounts) {
     final key = BillTypeUtils.canonicalTypeKey(name);
     return billCounts[key] ?? 0;
+  }
+
+  String _localizedCategoryName(String rawName, AppLocalizations loc) {
+    final canonical = BillTypeUtils.canonicalTypeKey(rawName).toLowerCase();
+    if (canonical == 'water') return loc.billTypeWater;
+    if (canonical == 'electricity') return loc.billTypeElectricity;
+    return rawName;
+  }
+
+  String _localizedCategorySubtitle(
+    String rawSubtitle,
+    String rawName,
+    AppLocalizations loc,
+  ) {
+    final canonical = BillTypeUtils.canonicalTypeKey(rawName).toLowerCase();
+    final lower = rawSubtitle.trim().toLowerCase();
+    final isDefaultElectricity =
+        canonical == 'electricity' &&
+        (lower == 'electricity bills and invoices' || lower == 'electricity');
+    if (isDefaultElectricity) {
+      return loc.locale.languageCode == 'ar'
+          ? 'فواتير وإيصالات الكهرباء'
+          : 'Electricity bills and invoices';
+    }
+    final isDefaultWater =
+        canonical == 'water' &&
+        (lower == 'water bills and invoices' || lower == 'water');
+    if (isDefaultWater) {
+      return loc.locale.languageCode == 'ar'
+          ? 'فواتير وإيصالات المياه'
+          : 'Water bills and invoices';
+    }
+    return rawSubtitle;
   }
 }
 
