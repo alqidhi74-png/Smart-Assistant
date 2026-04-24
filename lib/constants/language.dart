@@ -237,6 +237,29 @@ class AppLocalizations {
       locale.languageCode == 'ar'
           ? 'ملاحظات وتقييمات المستخدمين'
           : 'User feedback and ratings';
+  String get feedbackReplied =>
+      locale.languageCode == 'ar' ? 'تم الرد' : 'Replied';
+  String get feedbackNotReplied =>
+      locale.languageCode == 'ar' ? 'بانتظار الرد' : 'Pending';
+  String get feedbackSkipped =>
+      locale.languageCode == 'ar' ? 'تم التخطي' : 'Skipped';
+  String get feedbackReplyTitle =>
+      locale.languageCode == 'ar' ? 'الرد على الملاحظة' : 'Reply to feedback';
+  String get feedbackReplyHint =>
+      locale.languageCode == 'ar'
+          ? 'اكتب الرد هنا...'
+          : 'Write your reply here...';
+  String get sendReply =>
+      locale.languageCode == 'ar' ? 'إرسال الرد' : 'Send reply';
+  String get replyRequired =>
+      locale.languageCode == 'ar' ? 'يرجى كتابة الرد' : 'Please add a reply';
+  String get unskip => locale.languageCode == 'ar' ? 'إلغاء التخطي' : 'Unskip';
+  String get adminReplyLabel =>
+      locale.languageCode == 'ar' ? 'رد الأدمن' : 'Admin reply';
+  String get skip => locale.languageCode == 'ar' ? 'تخطي' : 'Skip';
+  String get reply => locale.languageCode == 'ar' ? 'رد' : 'Reply';
+  String get feedbackSentAt =>
+      locale.languageCode == 'ar' ? 'وقت الإرسال' : 'Sent at';
   String feedbackHeaderWithCount(int count) {
     if (locale.languageCode == 'ar') {
       return 'كل الملاحظات ($count)';
