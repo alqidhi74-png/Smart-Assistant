@@ -292,7 +292,8 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
   List<_UserEntry> _parseUsers(Object? value) {
     if (value == null) return [];
     final data = value as Map<dynamic, dynamic>;
-    return data.entries.map((entry) {
+    final users =
+        data.entries.map((entry) {
       final raw = entry.value as Map<dynamic, dynamic>;
       final createdAt = _parseTimestamp(raw['createdAt']);
       final adminValue = (raw['admin'] ?? 'N').toString();
@@ -306,6 +307,8 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
         createdAt: createdAt,
       );
     }).toList();
+    users.sort((a, b) => (b.createdAt ?? 0).compareTo(a.createdAt ?? 0));
+    return users;
   }
 
   List<_UserEntry> _filterUsers(List<_UserEntry> users) {
@@ -832,25 +835,24 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
   ) async {
     final doc = pw.Document();
     final rows = [
-      ['Full Name', 'Email', 'Phone', 'Status', 'Joined'],
-      ...users.map(
-        (user) => [
+      ['User Name', 'Email', 'Phone', 'Status', 'Role', 'Joined'],
+      ...users.map((user) {
+        return [
           user.fullName.isEmpty ? 'Unknown User' : user.fullName,
           user.email,
           user.phone,
-          user.isBlocked ? 'blocked' : 'active',
-          _formatJoinedDate(user.createdAt),
-        ],
-      ),
+          user.isBlocked ? 'Blocked' : 'Active',
+          user.isAdmin ? 'Admin' : 'User',
+          _formatJoinedDateTime(user.createdAt),
+        ];
+      }),
     ];
     doc.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(24),
-        build: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
+        build:
+            (context) => [
               pw.Text(
                 'User Details Export',
                 style: pw.TextStyle(
@@ -858,31 +860,50 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
                   fontWeight: pw.FontWeight.bold,
                 ),
               ),
+              pw.SizedBox(height: 6),
+              pw.Text(
+                'Rows: ${users.length}',
+                style: const pw.TextStyle(fontSize: 10),
+              ),
               pw.SizedBox(height: 12),
               pw.TableHelper.fromTextArray(
                 data: rows,
                 headerStyle: pw.TextStyle(
                   fontWeight: pw.FontWeight.bold,
                   color: PdfColors.white,
+                  fontSize: 10,
                 ),
                 headerDecoration: const pw.BoxDecoration(
                   color: PdfColor.fromInt(0xFF1E88E5),
                 ),
                 cellAlignment: pw.Alignment.centerLeft,
-                cellStyle: const pw.TextStyle(fontSize: 10),
+                cellStyle: const pw.TextStyle(fontSize: 9),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(1.8),
+                  1: const pw.FlexColumnWidth(2.1),
+                  2: const pw.FlexColumnWidth(1.2),
+                  3: const pw.FlexColumnWidth(1.0),
+                  4: const pw.FlexColumnWidth(1.0),
+                  5: const pw.FlexColumnWidth(1.3),
+                },
                 cellPadding: const pw.EdgeInsets.symmetric(
-                  vertical: 6,
-                  horizontal: 6,
+                  vertical: 5,
+                  horizontal: 5,
                 ),
               ),
             ],
-          );
-        },
       ),
     );
     final directory = await getAdminDownloadDirectory();
+    final now = DateTime.now();
+    final stamp =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}_'
+        '${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
+    final normalizedBase = safeExportFileName(baseName);
     final fileName =
-        '${safeExportFileName(baseName)}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        normalizedBase == 'all_users'
+            ? 'Users-Export_$stamp.pdf'
+            : 'User-Export_${normalizedBase}_$stamp.pdf';
     final file = File('${directory.path}/$fileName');
     await file.writeAsBytes(await doc.save());
     return file;
@@ -998,6 +1019,12 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
     if (timestampMs == null) return '-';
     final date = DateTime.fromMillisecondsSinceEpoch(timestampMs);
     return DateFormat('yyyy-MM-dd').format(date);
+  }
+
+  String _formatJoinedDateTime(int? timestampMs) {
+    if (timestampMs == null) return '-';
+    final date = DateTime.fromMillisecondsSinceEpoch(timestampMs);
+    return DateFormat('yyyy-MM-dd hh:mm a').format(date);
   }
 
   String _initials(String name) {

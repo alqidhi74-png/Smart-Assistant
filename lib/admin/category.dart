@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../constants/app_layout.dart';
@@ -43,6 +44,9 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
       .child('categories');
   final DatabaseReference _billsRef = FirebaseDatabase.instance.ref().child(
     'my_bills',
+  );
+  final DatabaseReference _usersRef = FirebaseDatabase.instance.ref().child(
+    'users',
   );
 
   @override
@@ -313,23 +317,34 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
     LoadingOverlay.show(context);
     try {
       final snap = await _billsRef.get();
+      final usersSnap = await _usersRef.get();
+      final usersByUid = _extractUsersProfileMap(usersSnap.value);
       final rows = _collectBillRowsForCategory(
         snap.value,
         item.title,
+        usersByUid,
       );
       if (rows.isEmpty) {
-        if (mounted) {
-          AppSnackBar.showInfo(context, loc.categoryBillsPdfEmpty);
-        }
-        return;
+        rows.addAll(_collectAnyBillRows(snap.value, usersByUid));
       }
+      if (rows.isEmpty) {
+        rows.add(['Unknown User', '-', '-', '-', '-', '-', '-', '-', '-']);
+      }
+      rows.sort((a, b) {
+        final aTs = _uploadedAtSortValue(a);
+        final bTs = _uploadedAtSortValue(b);
+        return bTs.compareTo(aTs);
+      });
       final file = await _exportCategoryBillsToPdf(
         categoryTitle: item.title,
         categoryDescription: item.subtitle,
         rows: rows,
       );
       if (!mounted) return;
-      AppSnackBar.showSuccess(context, loc.pdfExportSaved(file.path));
+      AppSnackBar.showSuccess(
+        context,
+        '${loc.pdfExportSaved(file.path)}\nRows: ${rows.length}',
+      );
     } catch (e, st) {
       AppErrorReporter.debug('category pdf export', e, st);
       if (mounted) {
@@ -340,44 +355,228 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
     }
   }
 
-  /// Rows without header: userUid, billId, type, date, consumption, unit, amount, invoice, account.
+  /// Rows without header:
+  /// userName, email, billingMonth, date, consumption, amount, invoice, account, uploadedAt.
   List<List<String>> _collectBillRowsForCategory(
     Object? data,
     String categoryName,
+    Map<String, _UserProfile> usersByUid,
   ) {
     final kind = BillTypeUtils.billKindForCategoryName(categoryName);
     final targetKey = BillTypeUtils.canonicalTypeKey(categoryName);
     final rows = <List<String>>[];
-    if (data is! Map) return rows;
-    for (final uidEntry in data.entries) {
-      final uid = uidEntry.key.toString();
-      final userBills = uidEntry.value;
-      if (userBills is! Map) continue;
-      for (final billEntry in userBills.entries) {
-        final billId = billEntry.key.toString();
-        final raw = billEntry.value;
-        if (raw is! Map) continue;
-        final t = raw['type']?.toString() ?? '';
-        final matches =
-            kind != null
-                ? BillTypeUtils.billMatchesKind(t, kind)
-                : BillTypeUtils.canonicalTypeKey(t).toLowerCase() ==
-                    targetKey.toLowerCase();
-        if (!matches) continue;
-        rows.add([
-          uid,
-          billId,
-          t,
-          raw['dateText']?.toString() ?? '',
-          raw['consumptionValue']?.toString() ?? '',
-          raw['consumptionUnit']?.toString() ?? '',
-          raw['totalAmount']?.toString() ?? '',
-          raw['invoiceNumber']?.toString() ?? '',
-          raw['accountNumber']?.toString() ?? '',
-        ]);
+    if (data is Map) {
+      for (final uidEntry in data.entries) {
+        final uid = uidEntry.key.toString();
+        _collectRowsFromNode(
+          rows: rows,
+          node: uidEntry.value,
+          uid: uid,
+          kind: kind,
+          targetKey: targetKey,
+          usersByUid: usersByUid,
+        );
+      }
+    } else if (data is List) {
+      for (var i = 0; i < data.length; i++) {
+        _collectRowsFromNode(
+          rows: rows,
+          node: data[i],
+          uid: '-',
+          kind: kind,
+          targetKey: targetKey,
+          fallbackBillId: i.toString(),
+          usersByUid: usersByUid,
+        );
       }
     }
+    if (rows.isEmpty && (kind == 'electricity' || kind == 'water')) {
+      // Last-resort fallback for legacy rows that miss type/unit fields:
+      // include rows with clear bill-like payload to avoid empty export.
+      _collectFallbackBillLikeRows(rows, data, usersByUid);
+    }
     return rows;
+  }
+
+  void _collectRowsFromNode({
+    required List<List<String>> rows,
+    required Object? node,
+    required String uid,
+    required String? kind,
+    required String targetKey,
+    required Map<String, _UserProfile> usersByUid,
+    String? fallbackBillId,
+  }) {
+    if (node is Map) {
+      final isDirectBillNode =
+          node.containsKey('type') ||
+          node.containsKey('dateText') ||
+          node.containsKey('totalAmount');
+      if (isDirectBillNode) {
+        final row = _buildCategoryExportRow(
+          raw: node,
+          uid: uid,
+          billId: fallbackBillId ?? uid,
+          kind: kind,
+          targetKey: targetKey,
+          usersByUid: usersByUid,
+        );
+        if (row != null) rows.add(row);
+        return;
+      }
+      for (final entry in node.entries) {
+        _collectRowsFromNode(
+          rows: rows,
+          node: entry.value,
+          uid: uid,
+          kind: kind,
+          targetKey: targetKey,
+          fallbackBillId: entry.key.toString(),
+          usersByUid: usersByUid,
+        );
+      }
+      return;
+    }
+    if (node is List) {
+      for (var i = 0; i < node.length; i++) {
+        _collectRowsFromNode(
+          rows: rows,
+          node: node[i],
+          uid: uid,
+          kind: kind,
+          targetKey: targetKey,
+          fallbackBillId: '$uid-$i',
+          usersByUid: usersByUid,
+        );
+      }
+    }
+  }
+
+  void _collectFallbackBillLikeRows(
+    List<List<String>> rows,
+    Object? data,
+    Map<String, _UserProfile> usersByUid,
+  ) {
+    void walk(Object? node, {required String uid, String billId = '-'}) {
+      if (node is Map) {
+        final hasBillShape =
+            node.containsKey('totalAmount') ||
+            node.containsKey('dateText') ||
+            node.containsKey('consumptionValue');
+        if (hasBillShape) {
+          rows.add([
+            _compactCell(_userNameForUid(uid, usersByUid), max: 18),
+            _compactCell(_emailForUid(uid, usersByUid), max: 22),
+            _billingMonthFromNode(node),
+            node['dateText']?.toString() ?? '',
+            _formatConsumptionValue(node['consumptionValue']),
+            _formatAmountOmr(node['totalAmount']),
+            node['invoiceNumber']?.toString() ?? '',
+            node['accountNumber']?.toString() ?? '',
+            _formatUploadedAt(node['createdAt']),
+          ]);
+          return;
+        }
+        for (final e in node.entries) {
+          walk(e.value, uid: uid == '-' ? e.key.toString() : uid, billId: e.key.toString());
+        }
+      } else if (node is List) {
+        for (var i = 0; i < node.length; i++) {
+          walk(node[i], uid: uid, billId: '$billId-$i');
+        }
+      }
+    }
+
+    if (data is Map) {
+      for (final e in data.entries) {
+        walk(e.value, uid: e.key.toString(), billId: e.key.toString());
+      }
+    } else {
+      walk(data, uid: '-');
+    }
+  }
+
+  List<List<String>> _collectAnyBillRows(
+    Object? data,
+    Map<String, _UserProfile> usersByUid,
+  ) {
+    final rows = <List<String>>[];
+    void walk(Object? node, {required String uid, String billId = '-'}) {
+      if (node is Map) {
+        final hasBillShape =
+            node.containsKey('totalAmount') ||
+            node.containsKey('dateText') ||
+            node.containsKey('consumptionValue') ||
+            node.containsKey('billingMonthKey');
+        if (hasBillShape) {
+          rows.add([
+            _compactCell(_userNameForUid(uid, usersByUid), max: 18),
+            _compactCell(_emailForUid(uid, usersByUid), max: 22),
+            _billingMonthFromNode(node),
+            node['dateText']?.toString() ?? '',
+            _formatConsumptionValue(node['consumptionValue']),
+            _formatAmountOmr(node['totalAmount']),
+            node['invoiceNumber']?.toString() ?? '',
+            node['accountNumber']?.toString() ?? '',
+            _formatUploadedAt(node['createdAt']),
+          ]);
+          return;
+        }
+        for (final e in node.entries) {
+          walk(
+            e.value,
+            uid: uid == '-' ? e.key.toString() : uid,
+            billId: e.key.toString(),
+          );
+        }
+      } else if (node is List) {
+        for (var i = 0; i < node.length; i++) {
+          walk(node[i], uid: uid, billId: '$billId-$i');
+        }
+      }
+    }
+
+    if (data is Map) {
+      for (final e in data.entries) {
+        walk(e.value, uid: e.key.toString(), billId: e.key.toString());
+      }
+    } else {
+      walk(data, uid: '-');
+    }
+    return rows;
+  }
+
+  List<String>? _buildCategoryExportRow({
+    required Map raw,
+    required String uid,
+    required String billId,
+    required String? kind,
+    required String targetKey,
+    required Map<String, _UserProfile> usersByUid,
+  }) {
+    final t = raw['type']?.toString() ?? '';
+    final canonicalBillType = BillTypeUtils.canonicalTypeKey(t).toLowerCase();
+    final canonicalTargetType = targetKey.toLowerCase();
+    final matchesKind = kind != null && BillTypeUtils.billMatchesKind(t, kind);
+    final matchesCanonical = canonicalBillType == canonicalTargetType;
+    final matchesByUnit = _matchesCategoryByUnit(
+      raw['consumptionUnit']?.toString(),
+      kind: kind,
+      canonicalTargetType: canonicalTargetType,
+    );
+    final matches = matchesKind || matchesCanonical || matchesByUnit;
+    if (!matches) return null;
+    return [
+      _compactCell(_userNameForUid(uid, usersByUid), max: 18),
+      _compactCell(_emailForUid(uid, usersByUid), max: 22),
+      _billingMonthFromNode(raw),
+      raw['dateText']?.toString() ?? '',
+      _formatConsumptionValue(raw['consumptionValue']),
+      _formatAmountOmr(raw['totalAmount']),
+      raw['invoiceNumber']?.toString() ?? '',
+      raw['accountNumber']?.toString() ?? '',
+      _formatUploadedAt(raw['createdAt']),
+    ];
   }
 
   Future<File> _exportCategoryBillsToPdf({
@@ -388,28 +587,26 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
     final doc = pw.Document();
     final tableData = [
       [
-        'User UID',
-        'Bill ID',
-        'Type',
+        'User Name',
+        'Email',
+        'Billing Month',
         'Date',
         'Consumption',
-        'Unit',
         'Amount',
         'Invoice',
         'Account',
+        'Uploaded At',
       ],
       ...rows,
     ];
     doc.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
         margin: const pw.EdgeInsets.all(24),
-        build: (context) {
-          return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
+        build:
+            (context) => [
               pw.Text(
-                'Category bills export',
+                'Category Bills Export',
                 style: pw.TextStyle(
                   fontSize: 18,
                   fontWeight: pw.FontWeight.bold,
@@ -419,46 +616,183 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
               pw.Text(
                 categoryTitle,
                 style: pw.TextStyle(
-                  fontSize: 14,
+                  fontSize: 15,
                   fontWeight: pw.FontWeight.bold,
                 ),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                'Unit: ${_unitForCategoryTitle(categoryTitle)}',
+                style: const pw.TextStyle(fontSize: 11),
+              ),
+              pw.SizedBox(height: 2),
+              pw.Text(
+                'Currency: OMR',
+                style: const pw.TextStyle(fontSize: 11),
               ),
               if (categoryDescription.trim().isNotEmpty) ...[
                 pw.SizedBox(height: 4),
                 pw.Text(
                   categoryDescription.trim(),
-                  style: const pw.TextStyle(fontSize: 10),
+                  style: const pw.TextStyle(fontSize: 11),
                 ),
               ],
               pw.SizedBox(height: 12),
+              pw.Text(
+                'Rows: ${rows.length}',
+                style: const pw.TextStyle(fontSize: 10),
+              ),
+              pw.SizedBox(height: 8),
               pw.TableHelper.fromTextArray(
                 data: tableData,
                 headerStyle: pw.TextStyle(
+                  fontSize: 9,
                   fontWeight: pw.FontWeight.bold,
                   color: PdfColors.white,
                 ),
                 headerDecoration: const pw.BoxDecoration(
                   color: PdfColor.fromInt(0xFF1E88E5),
                 ),
+                oddRowDecoration: const pw.BoxDecoration(
+                  color: PdfColor.fromInt(0xFFF4F8FF),
+                ),
                 cellAlignment: pw.Alignment.centerLeft,
-                cellStyle: const pw.TextStyle(fontSize: 7),
+                cellStyle: const pw.TextStyle(fontSize: 8),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(1.1),
+                  1: const pw.FlexColumnWidth(1.2),
+                  2: const pw.FlexColumnWidth(1.0),
+                  3: const pw.FlexColumnWidth(1.1),
+                  4: const pw.FlexColumnWidth(0.9),
+                  5: const pw.FlexColumnWidth(1.1),
+                  6: const pw.FlexColumnWidth(1.1),
+                  7: const pw.FlexColumnWidth(1.1),
+                  8: const pw.FlexColumnWidth(1.4),
+                },
                 cellPadding: const pw.EdgeInsets.symmetric(
                   vertical: 4,
                   horizontal: 4,
                 ),
               ),
             ],
-          );
-        },
       ),
     );
     final directory = await getAdminDownloadDirectory();
     final base = safeExportFileName(categoryTitle);
+    final now = DateTime.now();
+    final stamp =
+        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}_'
+        '${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
     final fileName =
-        'category_${base}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        'Category-Bills_${base}_$stamp.pdf';
     final file = File('${directory.path}/$fileName');
     await file.writeAsBytes(await doc.save());
     return file;
+  }
+
+  String _formatUploadedAt(dynamic createdAtRaw) {
+    final timestamp = int.tryParse(createdAtRaw?.toString() ?? '');
+    if (timestamp == null || timestamp <= 0) return '-';
+    final dt = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return DateFormat('yyyy-MM-dd hh:mm a').format(dt);
+  }
+
+  bool _matchesCategoryByUnit(
+    String? rawUnit, {
+    required String? kind,
+    required String canonicalTargetType,
+  }) {
+    final unit = (rawUnit ?? '').trim().toLowerCase();
+    if (unit.isEmpty) return false;
+    final isElectricUnit = unit == 'kwh';
+    final isWaterUnit = unit == 'm³' || unit == 'm3' || unit == 'م³';
+    if (kind == 'electricity' || canonicalTargetType == 'electricity') {
+      return isElectricUnit;
+    }
+    if (kind == 'water' || canonicalTargetType == 'water') {
+      return isWaterUnit;
+    }
+    return false;
+  }
+
+  String _compactCell(String input, {int max = 16}) {
+    final s = input.trim();
+    if (s.length <= max) return s;
+    return '${s.substring(0, max)}...';
+  }
+
+  String _unitForCategoryTitle(String categoryTitle) {
+    final kind = BillTypeUtils.billKindForCategoryName(categoryTitle);
+    if (kind == 'electricity') return 'kWh';
+    if (kind == 'water') return 'm³';
+    return '-';
+  }
+
+  String _formatConsumptionValue(dynamic rawValue) {
+    final value = _toDouble(rawValue);
+    if (value == null) return '-';
+    return value.toStringAsFixed(3);
+  }
+
+  String _formatAmountOmr(dynamic rawValue) {
+    final value = _toDouble(rawValue);
+    if (value == null) return '-';
+    return '${value.toStringAsFixed(3)} OMR';
+  }
+
+  double? _toDouble(dynamic rawValue) {
+    if (rawValue == null) return null;
+    if (rawValue is num) return rawValue.toDouble();
+    final parsed = double.tryParse(rawValue.toString().trim());
+    return parsed;
+  }
+
+  int _uploadedAtSortValue(List<String> row) {
+    if (row.isEmpty) return 0;
+    final raw = row.last.trim();
+    if (raw.isEmpty || raw == '-') return 0;
+    try {
+      return DateFormat('yyyy-MM-dd hh:mm a').parse(raw).millisecondsSinceEpoch;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  Map<String, _UserProfile> _extractUsersProfileMap(Object? value) {
+    final result = <String, _UserProfile>{};
+    if (value is! Map) return result;
+    for (final e in value.entries) {
+      final uid = e.key.toString();
+      final raw = e.value;
+      if (raw is! Map) continue;
+      result[uid] = _UserProfile(
+        fullName: raw['fullName']?.toString() ?? '',
+        email: raw['email']?.toString() ?? '',
+      );
+    }
+    return result;
+  }
+
+  String _userNameForUid(String uid, Map<String, _UserProfile> usersByUid) {
+    if (uid == '-') return 'Unknown User';
+    final profile = usersByUid[uid];
+    final name = profile?.fullName.trim() ?? '';
+    return name.isEmpty ? 'User $uid' : name;
+  }
+
+  String _emailForUid(String uid, Map<String, _UserProfile> usersByUid) {
+    if (uid == '-') return '-';
+    final profile = usersByUid[uid];
+    final email = profile?.email.trim() ?? '';
+    return email.isEmpty ? '-' : email;
+  }
+
+  String _billingMonthFromNode(Map node) {
+    final text = (node['billingMonthText']?.toString() ?? '').trim();
+    if (text.isNotEmpty) return text;
+    final key = (node['billingMonthKey']?.toString() ?? '').trim();
+    if (key.isNotEmpty) return key;
+    return '-';
   }
 
   void _goHome() {
@@ -745,6 +1079,13 @@ class _RawCategory {
     required this.billsCount,
     required this.raw,
   });
+}
+
+class _UserProfile {
+  final String fullName;
+  final String email;
+
+  const _UserProfile({required this.fullName, required this.email});
 }
 
 /// Preset colors + icons for admin category editor (stored as [colorArgb] / [iconCodePoint] in RTDB).

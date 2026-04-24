@@ -207,9 +207,9 @@ class _UploadBillPageState extends State<UploadBillPage> {
     LoadingOverlay.hide();
     setState(() => _isProcessing = false);
 
-    final saved = await Navigator.push<bool>(
+    final result = await Navigator.push<String>(
       context,
-      MaterialPageRoute<bool>(
+      MaterialPageRoute<String>(
         builder:
             (context) => BillReviewPage(
               analysis: analysis,
@@ -218,9 +218,13 @@ class _UploadBillPageState extends State<UploadBillPage> {
       ),
     );
     if (!mounted) return;
-    if (saved == true) {
+    if (result != null) {
+      final primaryMessage =
+          result == 'updated'
+              ? _localizations.billUpdatedForMonth
+              : _localizations.billSavedToMyBills;
       _showMessage(
-        '${_localizations.billSavedToMyBills}\n${_localizations.billSavedChartsUpdatedHint}',
+        '$primaryMessage\n${_localizations.billSavedChartsUpdatedHint}',
         isSuccess: true,
       );
     }

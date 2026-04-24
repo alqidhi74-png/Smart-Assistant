@@ -6,7 +6,7 @@ abstract final class BillTypeUtils {
 
   static bool isWater(String type) {
     final t = type.toLowerCase();
-    return t.contains('water') || type.contains('مياه');
+    return t.contains('water') || type.contains('مياه') || type.contains('ماء');
   }
 
   static bool isInternet(String type) {
@@ -31,6 +31,9 @@ abstract final class BillTypeUtils {
       return 'electricity';
     }
     if (lower.contains('water') || categoryName.contains('مياه')) {
+      return 'water';
+    }
+    if (categoryName.contains('ماء')) {
       return 'water';
     }
     if (lower.contains('internet') ||
@@ -63,6 +66,9 @@ abstract final class BillTypeUtils {
       return 'Electricity';
     }
     if (lower.contains('water') || input.contains('مياه')) {
+      return 'Water';
+    }
+    if (input.contains('ماء')) {
       return 'Water';
     }
     if (lower.contains('internet') ||

@@ -81,13 +81,20 @@ class BillStore {
     }
   }
 
-  Future<void> saveBill(BillSummary bill) async {
+  Future<bool> saveBill(BillSummary bill) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      addBillLocal(bill);
-      return;
+      return _upsertBillLocal(bill);
     }
-    await FirebaseDatabase.instance.ref('my_bills/${user.uid}/${bill.id}').set({
+    final ref = FirebaseDatabase.instance.ref('my_bills/${user.uid}');
+    final existingId = await _findExistingBillId(
+      ref: ref,
+      type: bill.type,
+      billingMonthKey: bill.billingMonthKey,
+    );
+    final targetId = existingId ?? bill.id;
+
+    await ref.child(targetId).set({
       'type': bill.type,
       'dateText': bill.dateText,
       'consumptionValue': bill.consumptionValue,
@@ -102,10 +109,48 @@ class BillStore {
       'createdAt': bill.createdAt,
     });
     await ensureListening();
+    return existingId != null;
   }
 
   void addBillLocal(BillSummary bill) {
     bills.value = [bill, ...bills.value];
+  }
+
+  bool _upsertBillLocal(BillSummary bill) {
+    final normalizedType = _normalizeType(bill.type);
+    final normalizedKey = _normalizeMonthKey(bill.billingMonthKey);
+    if (normalizedKey == null) {
+      addBillLocal(bill);
+      return false;
+    }
+    final current = [...bills.value];
+    final existingIndex = current.indexWhere((it) {
+      return _normalizeType(it.type) == normalizedType &&
+          _normalizeMonthKey(it.billingMonthKey) == normalizedKey;
+    });
+    if (existingIndex >= 0) {
+      final existing = current[existingIndex];
+      current[existingIndex] = BillSummary(
+        id: existing.id,
+        type: bill.type,
+        dateText: bill.dateText,
+        consumptionValue: bill.consumptionValue,
+        consumptionUnit: bill.consumptionUnit,
+        totalAmount: bill.totalAmount,
+        accountNumber: bill.accountNumber,
+        invoiceNumber: bill.invoiceNumber,
+        billingMonthText: bill.billingMonthText,
+        billingMonthKey: bill.billingMonthKey,
+        currentMonthAmount: bill.currentMonthAmount,
+        consumptionDays: bill.consumptionDays,
+        createdAt: bill.createdAt,
+      );
+      current.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      bills.value = current;
+      return true;
+    }
+    addBillLocal(bill);
+    return false;
   }
 
   Future<void> deleteBill(String billId) async {
@@ -149,5 +194,41 @@ class BillStore {
     }
     items.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return items;
+  }
+
+  Future<String?> _findExistingBillId({
+    required DatabaseReference ref,
+    required String type,
+    required String? billingMonthKey,
+  }) async {
+    final normalizedKey = _normalizeMonthKey(billingMonthKey);
+    if (normalizedKey == null) return null;
+    final normalizedType = _normalizeType(type);
+    final snapshot = await ref.get();
+    final data = snapshot.value;
+    if (data is! Map) return null;
+
+    String? latestMatchingId;
+    var latestCreatedAt = -1;
+    data.forEach((key, value) {
+      if (value is! Map) return;
+      final rowType = _normalizeType(value['type']?.toString() ?? '');
+      final rowKey = _normalizeMonthKey(value['billingMonthKey']?.toString());
+      if (rowType != normalizedType || rowKey != normalizedKey) return;
+      final createdAt = int.tryParse(value['createdAt']?.toString() ?? '') ?? 0;
+      if (createdAt >= latestCreatedAt) {
+        latestCreatedAt = createdAt;
+        latestMatchingId = key.toString();
+      }
+    });
+    return latestMatchingId;
+  }
+
+  String _normalizeType(String type) => type.trim().toLowerCase();
+
+  String? _normalizeMonthKey(String? key) {
+    final t = key?.trim() ?? '';
+    if (t.isEmpty) return null;
+    return t.toLowerCase();
   }
 }

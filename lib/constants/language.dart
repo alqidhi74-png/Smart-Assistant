@@ -784,6 +784,10 @@ Account data and passwords are protected and processed securely. You may request
       locale.languageCode == 'ar'
           ? 'تم حفظ الفاتورة في صفحة فواتيري'
           : 'Bill saved in My Bills';
+  String get billUpdatedForMonth =>
+      locale.languageCode == 'ar'
+          ? 'تم تحديث فاتورة نفس الشهر بالقيمة الجديدة'
+          : 'Updated existing bill for the same month';
 
   String get billSavedChartsUpdatedHint =>
       locale.languageCode == 'ar'

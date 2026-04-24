@@ -366,8 +366,10 @@ class _BillReviewPageState extends State<BillReviewPage> {
         consumptionDays: _parseIntLoose(_consumptionDaysController.text),
         createdAt: createdAt,
       );
-      await BillStore.instance.saveBill(summary);
-      if (mounted) Navigator.of(context).pop(true);
+      final updated = await BillStore.instance.saveBill(summary);
+      if (mounted) {
+        Navigator.of(context).pop(updated ? 'updated' : 'created');
+      }
     } catch (_) {
       if (mounted) {
         AppSnackBar.showError(context, loc.billProcessingError);

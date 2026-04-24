@@ -165,7 +165,6 @@ class BillAnalysisService {
     );
     final accountConfidence = _confidenceForAccount(accountNumber);
     final invoiceConfidence = _confidenceForInvoice(invoiceNumber);
-
     return BillAnalysisResult(
       rawText: (displayRawText ?? text).trim(),
       billType: inferredType,
@@ -824,7 +823,6 @@ final _namaBarcodeInvoiceRe = RegExp(
   r'EPC[A-Za-z]?\d*[A-Za-z]?-0[^\d]{0,8}(\d{10,})',
   caseSensitive: false,
 );
-
 const _totalStrongKeywords = [
   'grand total',
   'amount due',
