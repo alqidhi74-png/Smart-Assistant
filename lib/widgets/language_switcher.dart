@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/colors.dart';
+import '../constants/language.dart';
 
 class LanguageSwitcher extends StatelessWidget {
   final Locale currentLocale;
@@ -13,6 +14,8 @@ class LanguageSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
     return PopupMenuButton<Locale>(
       icon: const Icon(Icons.language, color: AppColors.textOnDark),
       onSelected: (Locale locale) {
@@ -24,7 +27,7 @@ class LanguageSwitcher extends StatelessWidget {
               value: const Locale('ar'),
               child: Row(
                 children: [
-                  const Text('العربية'),
+                  Text(localizations.languageArabic),
                   if (currentLocale.languageCode == 'ar')
                     const Padding(
                       padding: EdgeInsets.only(left: 8.0),
@@ -37,7 +40,7 @@ class LanguageSwitcher extends StatelessWidget {
               value: const Locale('en'),
               child: Row(
                 children: [
-                  const Text('English'),
+                  Text(localizations.languageEnglish),
                   if (currentLocale.languageCode == 'en')
                     const Padding(
                       padding: EdgeInsets.only(left: 8.0),

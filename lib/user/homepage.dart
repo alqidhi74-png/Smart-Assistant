@@ -483,7 +483,10 @@ class _HomePageState extends State<HomePage> {
                                                           width: cardWidth,
                                                           child:
                                                               _ChartCardStyled(
-                                                            title: category.name,
+                                                            title: _localizedCategoryName(
+                                                              localizations,
+                                                              category.name,
+                                                            ),
                                                             badge: _formatTrend(
                                                               series.values,
                                                             ),
@@ -1891,7 +1894,7 @@ class _UserCategoriesPageState extends State<_UserCategoriesPage> {
                         final c = sorted[index];
                         final latest =
                             c.latestValue == null
-                                ? (isArabic ? 'لا بيانات' : 'No data')
+                                ? loc.noDataFound
                                 : c.latestValue!.toStringAsFixed(
                                   c.latestValue! % 1 == 0 ? 0 : 1,
                                 );
@@ -1932,7 +1935,7 @@ class _UserCategoriesPageState extends State<_UserCategoriesPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      c.name,
+                                      _localizedCategoryName(loc, c.name),
                                       style: TextStyle(
                                         color: textColor,
                                         fontWeight: FontWeight.w600,
@@ -2069,4 +2072,11 @@ class _InsightRow extends StatelessWidget {
       ],
     );
   }
+}
+
+String _localizedCategoryName(AppLocalizations localizations, String name) {
+  final key = BillTypeUtils.canonicalTypeKey(name).toLowerCase();
+  if (key == 'electricity') return localizations.billTypeElectricity;
+  if (key == 'water') return localizations.billTypeWater;
+  return name;
 }

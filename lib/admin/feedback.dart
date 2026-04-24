@@ -220,11 +220,14 @@ class _AdminFeedbackPageState extends State<AdminFeedbackPage> {
   }
 
   List<_FeedbackItem> _mapFeedback(Object? data) {
+    final localizations =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
     final items = <_FeedbackItem>[];
     if (data is Map) {
       data.forEach((key, value) {
         if (value is Map) {
-          final name = value['userName']?.toString() ?? 'User';
+          final name =
+              value['userName']?.toString() ?? localizations.userSingular;
           final message = value['message']?.toString() ?? '';
           final rating =
               double.tryParse(value['rating']?.toString() ?? '') ?? 0;

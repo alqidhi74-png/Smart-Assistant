@@ -920,10 +920,11 @@ class _AdminCategoryPageState extends State<AdminCategoryPage> {
       );
     } catch (_) {
       if (mounted) {
+        final loc =
+            AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
         AppSnackBar.showError(
           context,
-          AppLocalizations.of(context)?.billProcessingError ??
-              'Could not complete delete.',
+          loc.billProcessingError,
         );
       }
     } finally {

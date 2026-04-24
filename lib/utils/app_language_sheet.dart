@@ -44,7 +44,7 @@ Future<void> showAppLanguageSheet(
             ),
             ListTile(
               leading: const Icon(Icons.language),
-              title: const Text('العربية'),
+              title: Text(localizations.languageArabic),
               trailing:
                   currentEffective.languageCode == 'ar'
                       ? Icon(Icons.check, color: AppColors.primary)
@@ -53,7 +53,7 @@ Future<void> showAppLanguageSheet(
             ),
             ListTile(
               leading: const Icon(Icons.language),
-              title: const Text('English'),
+              title: Text(localizations.languageEnglish),
               trailing:
                   currentEffective.languageCode == 'en'
                       ? Icon(Icons.check, color: AppColors.primary)

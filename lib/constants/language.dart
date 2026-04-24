@@ -359,6 +359,10 @@ We respect your privacy. Data collected by the app is used only to:
 Account data and passwords are protected and processed securely. You may request deletion of your data at any time by contacting us.''';
 
   String get language => locale.languageCode == 'ar' ? 'اللغة' : 'Language';
+  String get languageArabic =>
+      locale.languageCode == 'ar' ? 'العربية' : 'Arabic';
+  String get languageEnglish =>
+      locale.languageCode == 'ar' ? 'الإنجليزية' : 'English';
   String get darkMode =>
       locale.languageCode == 'ar' ? 'الوضع الداكن' : 'Dark Mode';
   String get profile =>
