@@ -7,14 +7,26 @@ class OpenRouterChatService {
   OpenRouterChatService({http.Client? client}) : _client = client ?? http.Client();
 
   final http.Client _client;
-  static const String _endpoint = 'https://openrouter.ai/api/v1/chat/completions';
+  
+  // Dynamic endpoint based on key type
+  String _getEndpoint(String key) {
+    if (key.startsWith('sk-proj')) {
+      return 'https://api.openai.com/v1/chat/completions';
+    }
+    return 'https://openrouter.ai/api/v1/chat/completions';
+  }
 
-  // List of models to try in order (Fallback system)
-  final List<String> _models = [
-    'openai/gpt-4o-mini',
-    'anthropic/claude-3.5-sonnet',
-    'meta-llama/llama-3.1-70b-instruct',
-  ];
+  // List of models to try in order
+  List<String> _getModels(String key) {
+    if (key.startsWith('sk-proj')) {
+      return ['gpt-4o-mini', 'gpt-3.5-turbo'];
+    }
+    return [
+      'openai/gpt-4o-mini',
+      'anthropic/claude-3.5-sonnet',
+      'meta-llama/llama-3.1-70b-instruct',
+    ];
+  }
 
   Future<String> sendScopedMessage({
     required String systemPrompt,
@@ -33,12 +45,15 @@ class OpenRouterChatService {
       ...conversationHistory,
       {'role': 'user', 'content': userPrompt},
     ];
+    
+    final endpoint = _getEndpoint(key);
+    final models = _getModels(key);
 
     Object? lastError;
-    for (final model in _models) {
+    for (final model in models) {
       try {
         final response = await _client.post(
-          Uri.parse(_endpoint),
+          Uri.parse(endpoint),
           headers: {
             'Authorization': 'Bearer $key',
             'Content-Type': 'application/json',
@@ -58,6 +73,8 @@ class OpenRouterChatService {
         } else {
           lastError = 'Status ${response.statusCode}: ${response.body}';
           print('OPENROUTER ERROR ($model): $lastError');
+          // If we get a 401, it means the key is rejected, no point in trying other models
+          if (response.statusCode == 401) break;
         }
       } catch (e) {
         lastError = e;
