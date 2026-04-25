@@ -22,9 +22,9 @@ class OpenRouterChatService {
     /// Prior turns (role/content). System + latest user message are added by this method.
     List<Map<String, String>> conversationHistory = const [],
   }) async {
-    final key = ApiKeys.openRouterKey.trim();
+    final String key = ApiKeys.openRouterKey.trim();
 
-    if (key.isEmpty || key == 'PUT_OPENROUTER_KEY_HERE') {
+    if (key.isEmpty) {
       throw Exception('OpenRouter API key is missing');
     }
 

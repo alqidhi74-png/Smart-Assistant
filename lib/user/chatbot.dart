@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
-// Updated Chatbot UI with History Support
+import 'package:intl/intl.dart';
+
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
@@ -8,7 +12,6 @@ import '../models/bill_summary.dart';
 import '../services/chat_config_service.dart';
 import '../services/openrouter_chat_service.dart';
 import '../widgets/chat_chart.dart';
-import 'dart:convert';
 
 class ChatbotPage extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
@@ -20,11 +23,14 @@ class ChatbotPage extends StatefulWidget {
   State<ChatbotPage> createState() => _ChatbotPageState();
 }
 
-class _ChatbotPageState extends State<ChatbotPage> {
+class _ChatbotPageState extends State<ChatbotPage>
+    with SingleTickerProviderStateMixin {
   final List<_ChatMessage> _messages = [];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _inputFocus = FocusNode();
   bool _isSending = false;
+  late final AnimationController _typingDotController;
 
   final OpenRouterChatService _chatService = OpenRouterChatService();
   final ChatConfigService _chatConfigService = ChatConfigService();
@@ -33,7 +39,17 @@ class _ChatbotPageState extends State<ChatbotPage> {
   @override
   void initState() {
     super.initState();
-    _messages.add(_ChatMessage(isFromBot: true, textKey: _ChatTextKey.welcome));
+    _typingDotController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1200),
+    )..repeat();
+    _messages.add(
+      _ChatMessage(
+        isFromBot: true,
+        textKey: _ChatTextKey.welcome,
+        timestamp: DateTime.now(),
+      ),
+    );
     _loadChatConfig();
   }
 
@@ -49,6 +65,8 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
   @override
   void dispose() {
+    _typingDotController.dispose();
+    _inputFocus.dispose();
     _controller.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -63,27 +81,22 @@ class _ChatbotPageState extends State<ChatbotPage> {
 
     setState(() {
       _isSending = true;
-      _messages.add(_ChatMessage(isFromBot: false, text: text));
+      _messages.add(
+        _ChatMessage(isFromBot: false, text: text, timestamp: DateTime.now()),
+      );
     });
     _controller.clear();
     _scrollToBottom();
 
-    // We will let the AI handle the scope enforcement based on the system prompt.
-    // This allows for a much smarter and more natural conversation.
-    
     try {
-      final priorTurns = _messages
-          .take(_messages.length - 1)
-          .map((m) {
-            final resolvedText = m.text ?? _resolveText(localizations, m.textKey);
-            return <String, String>{
-              'role': m.isFromBot ? 'assistant' : 'user',
-              'content': resolvedText,
-            };
-          })
-          .toList();
+      final priorTurns = _messages.take(_messages.length - 1).map((m) {
+        final resolvedText = m.text ?? _resolveText(localizations, m.textKey);
+        return <String, String>{
+          'role': m.isFromBot ? 'assistant' : 'user',
+          'content': resolvedText,
+        };
+      }).toList();
 
-      // Keep only the last 10 messages for context to stay efficient
       final List<Map<String, String>> limitedHistory = priorTurns.length > 10
           ? priorTurns.sublist(priorTurns.length - 10)
           : priorTurns;
@@ -96,9 +109,7 @@ class _ChatbotPageState extends State<ChatbotPage> {
       _addBotMessage(responseText);
     } catch (e) {
       debugPrint('Chat API request failed: $e');
-      _addBotMessage(
-        'AI service is unavailable now. Verify OpenRouter key and try again.',
-      );
+      _addBotMessage('AI service is unavailable now. Try again later.');
     } finally {
       if (mounted) {
         setState(() => _isSending = false);
@@ -176,23 +187,22 @@ $billsContext
 
   void _addBotMessage(String text) {
     if (!mounted) return;
-    
-    Map<String, dynamic>? chartData;
     final chartMatch = RegExp(r'\[CHART: (.*?)\]').firstMatch(text);
+    Map<String, dynamic>? chartData;
     if (chartMatch != null) {
       try {
         chartData = jsonDecode(chartMatch.group(1)!);
-      } catch (e) {
-        // Ignore parsing errors
-      }
+      } catch (_) {}
     }
-
     setState(() {
-      _messages.add(_ChatMessage(
-        isFromBot: true, 
-        text: text,
-        chartData: chartData,
-      ));
+      _messages.add(
+        _ChatMessage(
+          isFromBot: true,
+          text: text,
+          chartData: chartData,
+          timestamp: DateTime.now(),
+        ),
+      );
     });
   }
 
@@ -212,155 +222,207 @@ $billsContext
     final localizations =
         AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final background = Theme.of(context).scaffoldBackgroundColor;
+    final locale = Localizations.localeOf(context);
+    final surface = Theme.of(context).colorScheme.surface;
     final primaryText = isDark ? Colors.white : AppColors.textDark;
     final mutedText =
         isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
+    final chatCanvas =
+        isDark ? const Color(0xFF0D1117) : const Color(0xFFE8EDF2);
+    final inputFill =
+        isDark ? const Color(0xFF1A2332) : const Color(0xFFF2F4F7);
 
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: chatCanvas,
       body: SafeArea(
         child: Column(
           children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-              decoration: BoxDecoration(
-                color: background,
-                border: Border(
-                  bottom: BorderSide(
-                    color:
-                        isDark
-                            ? const Color(0xFF2C2C2C)
-                            : AppColors.borderLight,
+            Material(
+              color: surface,
+              elevation: 0.5,
+              shadowColor: Colors.black26,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color:
+                          isDark
+                              ? const Color(0xFF2A3441)
+                              : AppColors.borderLight,
+                    ),
                   ),
                 ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.smart_toy, color: AppColors.primary),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
+                  children: [
+                    Stack(
+                      clipBehavior: Clip.none,
                       children: [
-                        Text(
-                          localizations.aiChatbot,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: primaryText,
+                        CircleAvatar(
+                          radius: 22,
+                          backgroundColor:
+                              AppColors.primary.withValues(alpha: 0.18),
+                          child: Icon(
+                            Icons.smart_toy_rounded,
+                            color: AppColors.primary,
+                            size: 26,
                           ),
                         ),
-                        Text(
-                          'Smart AI Ready',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(color: mutedText, fontSize: 12),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            width: 11,
+                            height: 11,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF34C759),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: surface, width: 2),
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            localizations.aiChatbot,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              letterSpacing: -0.2,
+                              color: primaryText,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            localizations.onlineNow,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: mutedText,
+                              fontSize: 12.5,
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                controller: _scrollController,
-                padding: AppLayout.pagePadding,
-                itemCount: _messages.length,
-                itemBuilder: (context, index) {
-                  final message = _messages[index];
-                  final text =
-                      message.text ??
-                      _resolveText(localizations, message.textKey);
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _MessageBubble(
-                      isFromBot: message.isFromBot,
-                      text: text,
-                      chartData: message.chartData,
-                    ),
-                  );
-                },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CustomPaint(painter: _ChatPatternPainter(isDark: isDark)),
+                  ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.fromLTRB(10, 12, 10, 20),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      final message = _messages[index];
+                      final text =
+                          message.text ??
+                          _resolveText(localizations, message.textKey);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _MessageBubble(
+                          isFromBot: message.isFromBot,
+                          text: text,
+                          chartData: message.chartData,
+                          createdAt: message.createdAt,
+                          locale: locale,
+                        ),
+                      );
+                    },
+                  ),
+                ],
               ),
             ),
             if (_isSending)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: _SkeletonBubble(isFromBot: true),
-              ),
-            Container(
-              padding: EdgeInsets.fromLTRB(
-                AppLayout.pagePaddingH,
-                AppLayout.pagePaddingV,
-                AppLayout.pagePaddingH,
-                12,
-              ),
-              decoration: BoxDecoration(
-                color: background,
-                border: Border(
-                  top: BorderSide(
-                    color:
-                        isDark
-                            ? const Color(0xFF2C2C2C)
-                            : AppColors.borderLight,
-                  ),
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+                child: _TypingBubble(
+                  controller: _typingDotController,
+                  isDark: isDark,
                 ),
               ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      textInputAction: TextInputAction.send,
-                      onSubmitted: (_) => _sendMessage(),
-                      decoration: InputDecoration(
-                        hintText: localizations.writeMessageHint,
-                        hintStyle: TextStyle(color: mutedText, fontSize: 12),
-                        filled: true,
-                        fillColor:
-                            isDark
-                                ? const Color(0xFF1E1E1E)
-                                : const Color(0xFFE0E0E0),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+            Material(
+              color: surface,
+              elevation: 8,
+              shadowColor: Colors.black12,
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  AppLayout.pagePaddingH,
+                  10,
+                  AppLayout.pagePaddingH,
+                  MediaQuery.paddingOf(context).bottom > 0 ? 8 : 12,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _inputFocus,
+                        minLines: 1,
+                        maxLines: 5,
+                        textInputAction: TextInputAction.newline,
+                        keyboardType: TextInputType.multiline,
+                        decoration: InputDecoration(
+                          hintText: localizations.writeMessageHint,
+                          hintStyle: TextStyle(
+                            color: mutedText,
+                            fontSize: 14,
+                          ),
+                          filled: true,
+                          fillColor: inputFill,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(22),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                        style: TextStyle(
+                          color: primaryText,
+                          fontSize: 15,
+                          height: 1.35,
                         ),
                       ),
-                      style: TextStyle(color: primaryText, fontSize: 12),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  InkWell(
-                    onTap: _sendMessage,
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.send,
-                        color: Colors.white,
-                        size: 20,
+                    const SizedBox(width: 8),
+                    Material(
+                      color: AppColors.primary,
+                      shape: const CircleBorder(),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: _isSending ? null : _sendMessage,
+                        child: SizedBox(
+                          width: 46,
+                          height: 46,
+                          child: Icon(
+                            Icons.send_rounded,
+                            color: Colors.white.withValues(
+                              alpha: _isSending ? 0.45 : 1,
+                            ),
+                            size: 22,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
@@ -391,13 +453,15 @@ class _ChatMessage {
   final String? text;
   final _ChatTextKey? textKey;
   final Map<String, dynamic>? chartData;
+  final DateTime createdAt;
 
   _ChatMessage({
     required this.isFromBot,
     this.text,
     this.textKey,
     this.chartData,
-  });
+    DateTime? timestamp,
+  }) : createdAt = timestamp ?? DateTime.now();
 }
 
 enum _ChatTextKey { welcome, normalConsumption, billHelp, help, defaultReply }
@@ -406,10 +470,14 @@ class _MessageBubble extends StatelessWidget {
   final bool isFromBot;
   final String text;
   final Map<String, dynamic>? chartData;
+  final DateTime createdAt;
+  final Locale locale;
 
   const _MessageBubble({
     required this.isFromBot,
     required this.text,
+    required this.createdAt,
+    required this.locale,
     this.chartData,
   });
 
@@ -418,97 +486,316 @@ class _MessageBubble extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bubbleColor =
         isFromBot
-            ? (isDark ? const Color(0xFF2C2C2C) : const Color(0xFFE8E8E8))
-            : (isDark ? const Color(0xFF1E3A5F) : const Color(0xFFDDEBFF));
-    final textColor = isDark ? Colors.white : AppColors.textDark;
+            ? (isDark ? const Color(0xFF1F2937) : Colors.white)
+            : (isDark ? const Color(0xFF1A4B8C) : AppColors.primary);
+    final textColor =
+        isFromBot
+            ? (isDark ? const Color(0xFFF3F4F6) : AppColors.textDark)
+            : Colors.white;
+    final timeColor =
+        isFromBot
+            ? (isDark ? const Color(0xFF9CA3AF) : AppColors.textSecondary)
+            : Colors.white.withValues(alpha: 0.85);
 
-    // Remove chart tag from display text
     final displayText = text.replaceAll(RegExp(r'\[CHART:.*?\]'), '').trim();
+    final localeId =
+        locale.countryCode != null && locale.countryCode!.isNotEmpty
+            ? '${locale.languageCode}_${locale.countryCode}'
+            : locale.languageCode;
+    final timeStr = DateFormat.jm(localeId).format(createdAt);
+    final hasBody = displayText.isNotEmpty;
+    if (!hasBody && chartData == null) {
+      return const SizedBox.shrink();
+    }
+
+    final bubbleRadius = BorderRadius.only(
+      topLeft: const Radius.circular(18),
+      topRight: const Radius.circular(18),
+      bottomLeft: Radius.circular(isFromBot ? 4 : 18),
+      bottomRight: Radius.circular(isFromBot ? 18 : 4),
+    );
+
+    final maxBubbleW = MediaQuery.sizeOf(context).width * 0.78;
+    final innerAlign =
+        isFromBot ? CrossAxisAlignment.start : CrossAxisAlignment.end;
+
+    Widget? bubble;
+    if (hasBody) {
+      bubble = ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxBubbleW),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: bubbleRadius,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+                blurRadius: 10,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border:
+                isFromBot && !isDark
+                    ? Border.all(
+                      color: AppColors.borderLight.withValues(alpha: 0.6),
+                    )
+                    : null,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: innerAlign,
+            children: [
+              Text(
+                displayText,
+                textAlign: isFromBot ? TextAlign.start : TextAlign.end,
+                style: TextStyle(
+                  color: textColor,
+                  fontSize: 15,
+                  height: 1.38,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                timeStr,
+                textAlign: isFromBot ? TextAlign.start : TextAlign.end,
+                style: TextStyle(
+                  color: timeColor,
+                  fontSize: 11,
+                  height: 1,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final userAvatar = CircleAvatar(
+      radius: 15,
+      backgroundColor:
+          isDark ? const Color(0xFF2A3441) : AppColors.borderLight,
+      child: Icon(
+        Icons.person_rounded,
+        size: 20,
+        color: isDark ? Colors.white70 : AppColors.primary,
+      ),
+    );
+
+    if (!isFromBot) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxBubbleW),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (bubble != null) bubble,
+                  if (bubble != null && chartData != null)
+                    const SizedBox(height: 8),
+                  if (chartData != null)
+                    _ChartAttachment(chartData: chartData!, alignEnd: true),
+                ],
+              ),
+            ),
+            const SizedBox(width: 6),
+            userAvatar,
+          ],
+        ),
+      );
+    }
 
     return Align(
-      alignment: isFromBot ? Alignment.centerLeft : Alignment.centerRight,
-      child: Column(
-        crossAxisAlignment:
-            isFromBot ? CrossAxisAlignment.start : CrossAxisAlignment.end,
+      alignment: Alignment.centerLeft,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (displayText.isNotEmpty)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.7,
-              ),
-              decoration: BoxDecoration(
-                color: bubbleColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                displayText,
-                style: TextStyle(color: textColor, fontSize: 12),
+          if (bubble != null || chartData != null)
+            CircleAvatar(
+              radius: 15,
+              backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+              child: Icon(
+                Icons.smart_toy_rounded,
+                size: 18,
+                color: AppColors.primary,
               ),
             ),
-          if (chartData != null) ...[
-            const SizedBox(height: 8),
-            SizedBox(
-              width: MediaQuery.of(context).size.width * 0.8,
-              child: ChatChart(
-                type: chartData!['type'] ?? 'line',
-                values: List<double>.from(chartData!['values'] ?? []),
-                labels: List<String>.from(chartData!['labels'] ?? []),
-                title: chartData!['title'],
+          if (bubble != null || chartData != null) const SizedBox(width: 6),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxBubbleW),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (bubble != null) bubble,
+                    if (bubble != null && chartData != null)
+                      const SizedBox(height: 8),
+                    if (chartData != null)
+                      _ChartAttachment(chartData: chartData!, alignEnd: false),
+                  ],
+                ),
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
   }
 }
 
-class _SkeletonBubble extends StatelessWidget {
-  final bool isFromBot;
+class _ChartAttachment extends StatelessWidget {
+  final Map<String, dynamic> chartData;
+  final bool alignEnd;
 
-  const _SkeletonBubble({required this.isFromBot});
+  const _ChartAttachment({
+    required this.chartData,
+    required this.alignEnd,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor =
-        isDark ? const Color(0xFF2C2C2C) : const Color(0xFFE0E0E0);
-
+    final w = MediaQuery.of(context).size.width * 0.82;
     return Align(
-      alignment: isFromBot ? Alignment.centerLeft : Alignment.centerRight,
-      child: Container(
-        padding: const EdgeInsets.all(10),
-        constraints: const BoxConstraints(maxWidth: 200),
-        decoration: BoxDecoration(
-          color: baseColor,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          children: [
-            Container(
-              height: 6,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: baseColor.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(4),
-              ),
+      alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+      child: SizedBox(
+        width: w,
+        child: Material(
+          elevation: 2,
+          borderRadius: BorderRadius.circular(14),
+          color: Theme.of(context).colorScheme.surface,
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: ChatChart(
+              type: chartData['type'] ?? 'line',
+              values: List<double>.from(chartData['values'] ?? []),
+              labels: List<String>.from(chartData['labels'] ?? []),
+              title: chartData['title'],
             ),
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                height: 6,
-                width: 80,
-                decoration: BoxDecoration(
-                  color: baseColor.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
+
+class _TypingBubble extends StatelessWidget {
+  final AnimationController controller;
+  final bool isDark;
+
+  const _TypingBubble({
+    required this.controller,
+    required this.isDark,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bubbleColor = isDark ? const Color(0xFF1F2937) : Colors.white;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          CircleAvatar(
+            radius: 15,
+            backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+            child: Icon(
+              Icons.smart_toy_rounded,
+              size: 18,
+              color: AppColors.primary,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(18),
+                topRight: Radius.circular(18),
+                bottomLeft: Radius.circular(4),
+                bottomRight: Radius.circular(18),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border:
+                  !isDark
+                      ? Border.all(
+                        color: AppColors.borderLight.withValues(alpha: 0.6),
+                      )
+                      : null,
+            ),
+            child: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(3, (i) {
+                    final t = (controller.value * 2 * math.pi) + (i * 0.9);
+                    final scale = 0.55 + 0.45 * (0.5 + 0.5 * math.sin(t));
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: Transform.scale(
+                        scale: scale,
+                        child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.75),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatPatternPainter extends CustomPainter {
+  final bool isDark;
+
+  _ChatPatternPainter({required this.isDark});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dot =
+        Paint()
+          ..color =
+              (isDark ? Colors.white : AppColors.primary).withValues(
+                alpha: isDark ? 0.04 : 0.055,
+              )
+          ..isAntiAlias = true;
+
+    const step = 22.0;
+    for (var y = 0.0; y < size.height + step; y += step) {
+      for (var x = 0.0; x < size.width + step; x += step) {
+        canvas.drawCircle(Offset(x + (y / step % 2) * (step / 2), y), 1.2, dot);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChatPatternPainter oldDelegate) =>
+      oldDelegate.isDark != isDark;
 }

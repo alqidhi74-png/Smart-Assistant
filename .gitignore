@@ -45,6 +45,6 @@ app.*.map.json
 
 # Firebase local deploy cache (hosting preview / deploy metadata)
 **/.firebase/
-# Local Secrets
-lib/constants/secrets.dart
+# Per-developer API keys (never commit)
+dart_defines.json
 
