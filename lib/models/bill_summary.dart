@@ -5,6 +5,7 @@ class BillSummary {
   final double? consumptionValue;
   final String? consumptionUnit;
   final double? totalAmount;
+  final double? taxAmount;
   final String? accountNumber;
   final String? invoiceNumber;
   final String? billingMonthText;
@@ -20,6 +21,7 @@ class BillSummary {
     this.consumptionValue,
     this.consumptionUnit,
     this.totalAmount,
+    this.taxAmount,
     this.accountNumber,
     this.invoiceNumber,
     this.billingMonthText,

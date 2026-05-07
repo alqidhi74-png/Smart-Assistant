@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' as intl;
@@ -16,14 +17,14 @@ import '../utils/bill_date_utils.dart';
 
 class BillReviewPage extends StatefulWidget {
   final BillAnalysisResult analysis;
-
-  /// From [CategoryPolicyService.fetchAllowedUtilityKinds]: `electricity` / `water`.
   final Set<String> allowedUtilityKinds;
+  final String? imagePath;
 
   const BillReviewPage({
     super.key,
     required this.analysis,
     required this.allowedUtilityKinds,
+    this.imagePath,
   });
 
   @override
@@ -42,6 +43,7 @@ class _BillReviewPageState extends State<BillReviewPage> {
   late final TextEditingController _billingMonthKeyController;
   late final TextEditingController _currentMonthController;
   late final TextEditingController _consumptionDaysController;
+  late final TextEditingController _taxController;
 
   late bool _isWater;
   bool _saving = false;
@@ -111,13 +113,14 @@ class _BillReviewPageState extends State<BillReviewPage> {
     _consumptionDaysController = TextEditingController(
       text: a.consumptionDays?.toString() ?? '',
     );
+    _taxController = TextEditingController(text: _formatNum(a.taxAmount));
   }
 
   void _scheduleReject(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       AppSnackBar.showError(context, message);
-      Navigator.of(context).pop(false);
+      Navigator.of(context).pop();
     });
   }
 
@@ -202,9 +205,7 @@ class _BillReviewPageState extends State<BillReviewPage> {
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
       locale: locale,
-      helpText:
-          AppLocalizations.of(context)?.pickBillingMonthAction ??
-          'Pick billing month',
+      helpText: _loc.pickBillingMonthAction,
     );
     if (!mounted || d == null) return;
 
@@ -237,6 +238,7 @@ class _BillReviewPageState extends State<BillReviewPage> {
     _billingMonthKeyController.dispose();
     _currentMonthController.dispose();
     _consumptionDaysController.dispose();
+    _taxController.dispose();
     super.dispose();
   }
 
@@ -256,12 +258,6 @@ class _BillReviewPageState extends State<BillReviewPage> {
     return double.tryParse(s);
   }
 
-  static int? _parseIntLoose(String raw) {
-    final s = raw.trim().replaceAll(RegExp(r'\s'), '');
-    if (s.isEmpty) return null;
-    return int.tryParse(s);
-  }
-
   static String? _normalizeBillingKey(String raw) {
     final s = raw.trim();
     if (s.isEmpty) return null;
@@ -274,12 +270,6 @@ class _BillReviewPageState extends State<BillReviewPage> {
       }
     }
     return s;
-  }
-
-  String _consumptionUnitForSave() {
-    final u = _unitController.text.trim();
-    if (u.isNotEmpty) return u;
-    return _isWater ? 'm³' : 'kWh';
   }
 
   AppLocalizations get _loc =>
@@ -298,47 +288,19 @@ class _BillReviewPageState extends State<BillReviewPage> {
     return null;
   }
 
-  String? _validateBillingKeyField(String? v) {
-    final req = _validateRequired(v);
-    if (req != null) return req;
-    final norm = _normalizeBillingKey(v!.trim());
-    if (norm == null || !RegExp(r'^\d{4}-\d{2}$').hasMatch(norm)) {
-      return _loc.billReviewErrBillingKeyFormat;
-    }
-    return null;
-  }
-
-  String? _validateOptionalAmount(String? v) {
-    final t = v?.trim() ?? '';
-    if (t.isEmpty) return null;
-    final n = _parseDoubleLoose(t);
-    if (n == null || n < 0) return _loc.billReviewErrInvalidNumber;
-    return null;
-  }
-
-  String? _validateOptionalDays(String? v) {
-    final t = v?.trim() ?? '';
-    if (t.isEmpty) return null;
-    final n = int.tryParse(t);
-    if (n == null || n < 1 || n > 366) {
-      return _loc.billReviewErrInvalidNumber;
-    }
-    return null;
-  }
-
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final loc = _loc;
     final kind = _isWater ? 'water' : 'electricity';
     if (!widget.allowedUtilityKinds.contains(kind)) {
-      AppSnackBar.showError(context, loc.billTypeRemovedByAdmin);
+      AppSnackBar.showError(context, _loc.billTypeRemovedByAdmin);
       return;
     }
 
     final total = _parseDoubleLoose(_totalController.text);
     final consumption = _parseDoubleLoose(_consumptionController.text);
     final currentMonth = _parseDoubleLoose(_currentMonthController.text);
+    final tax = _parseDoubleLoose(_taxController.text);
     final invoice = _invoiceController.text.trim();
     final billingKeyRaw = _billingMonthKeyController.text.trim();
     final billingText = _billingMonthTextController.text.trim();
@@ -353,26 +315,31 @@ class _BillReviewPageState extends State<BillReviewPage> {
         type: _isWater ? 'Water' : 'Electricity',
         dateText:
             _dateController.text.trim().isEmpty
-                ? loc.noDataFound
+                ? _loc.noDataFound
                 : _dateController.text.trim(),
         consumptionValue: consumption,
-        consumptionUnit: consumption != null ? _consumptionUnitForSave() : null,
+        consumptionUnit: consumption != null ? (_isWater ? 'm³' : 'kWh') : null,
         totalAmount: total,
+        taxAmount: tax,
         accountNumber: account.isEmpty ? null : account,
         invoiceNumber: invoice.isEmpty ? null : invoice,
         billingMonthText: billingText.isEmpty ? null : billingText,
         billingMonthKey: normKey,
         currentMonthAmount: currentMonth,
-        consumptionDays: _parseIntLoose(_consumptionDaysController.text),
+        consumptionDays: int.tryParse(_consumptionDaysController.text),
         createdAt: createdAt,
       );
       final updated = await BillStore.instance.saveBill(summary);
       if (mounted) {
-        Navigator.of(context).pop(updated ? 'updated' : 'created');
+        Navigator.of(context).pop({
+          'status': updated ? 'updated' : 'created',
+          'billType': _isWater ? 'Water' : 'Electricity',
+          'billingMonthKey': _billingMonthKeyController.text.trim(),
+        });
       }
     } catch (_) {
       if (mounted) {
-        AppSnackBar.showError(context, loc.billProcessingError);
+        AppSnackBar.showError(context, _loc.billProcessingError);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -381,410 +348,176 @@ class _BillReviewPageState extends State<BillReviewPage> {
 
   @override
   Widget build(BuildContext context) {
-    final loc =
-        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final background = Theme.of(context).scaffoldBackgroundColor;
     final textColor = isDark ? Colors.white : AppColors.textDark;
-    final hintColor =
-        isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
-    final lowConfidenceCount =
-        [
-          widget.analysis.totalAmountConfidence,
-          widget.analysis.consumptionConfidence,
-          widget.analysis.invoiceConfidence,
-          widget.analysis.accountConfidence,
-        ].where((c) => c != null && c < 0.6).length;
-
-    InputDecoration deco(
-      String label, {
-      String? hint,
-      String? suffixText,
-      Widget? suffixIcon,
-    }) {
-      return InputDecoration(
-        labelText: label,
-        hintText: hint,
-        suffixText: suffixText,
-        suffixIcon: suffixIcon,
-        suffixStyle: TextStyle(color: hintColor, fontSize: 13),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        isDense: true,
-      );
-    }
-
-    final consumptionSuffix = _isWater ? loc.chartUnitWater : loc.chartUnitKwh;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
-
-    Widget confidenceBadge(double? c) {
-      if (c == null) return const SizedBox.shrink();
-      late final Color color;
-      late final String label;
-      if (c >= 0.85) {
-        color = Colors.green;
-        label = isArabic ? 'ثقة عالية' : 'High confidence';
-      } else if (c >= 0.6) {
-        color = Colors.orange;
-        label = isArabic ? 'ثقة متوسطة' : 'Medium confidence';
-      } else {
-        color = Colors.red;
-        label = isArabic ? 'ثقة منخفضة' : 'Low confidence';
-      }
-      return Padding(
-        padding: const EdgeInsets.only(top: 6, left: 2, right: 2),
-        child: Row(
-          children: [
-            Icon(Icons.analytics_outlined, size: 14, color: color),
-            const SizedBox(width: 6),
-            Text(
-              '$label (${(c * 100).round()}%)',
-              style: TextStyle(color: color, fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
+    final subtextColor = isDark ? Colors.white70 : AppColors.textSecondary;
+    final hintColor = isDark ? Colors.grey[500] : Colors.grey[600];
 
     return Scaffold(
-      backgroundColor: background,
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: Text(
-          loc.billReviewTitle,
-          style: TextStyle(color: textColor),
-        ),
-        backgroundColor: background,
-        foregroundColor: textColor,
+        title: Text(_loc.billReviewTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+        backgroundColor: const Color(0xFF121212),
         elevation: 0,
         centerTitle: true,
         leading: BackButton(
-          color: textColor,
-          onPressed: _saving ? null : () => Navigator.of(context).pop(false),
+          color: Colors.white,
+          onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
       ),
       body: Column(
         children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-              AppLayout.pagePaddingH + 6,
-              0,
-              AppLayout.pagePaddingH + 6,
-              8,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  loc.billReviewHint,
-                  style: TextStyle(color: hintColor, fontSize: 13),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  loc.billReviewChartHint,
-                  style: TextStyle(color: hintColor, fontSize: 11, height: 1.3),
-                ),
-                if (lowConfidenceCount > 0) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          isDark
-                              ? const Color(0xFF3B2A12)
-                              : const Color(0xFFFFF3E0),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color:
-                            isDark
-                                ? const Color(0xFFFFB74D)
-                                : const Color(0xFFFFCC80),
-                      ),
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Icon(
-                          Icons.warning_amber_rounded,
-                          size: 16,
-                          color: Color(0xFFE65100),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            Localizations.localeOf(context).languageCode == 'ar'
-                                ? 'تم رصد $lowConfidenceCount حقول بثقة منخفضة. يُفضّل مراجعتها قبل الحفظ.'
-                                : '$lowConfidenceCount low-confidence fields were detected. Please review them before saving.',
-                            style: TextStyle(
-                              color:
-                                  isDark
-                                      ? const Color(0xFFFFCC80)
-                                      : const Color(0xFFE65100),
-                              fontSize: 12,
-                              height: 1.3,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
           Expanded(
             child: Form(
               key: _formKey,
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(
-                  horizontal: AppLayout.pagePaddingH + 6,
-                  vertical: AppLayout.pagePaddingV,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SegmentedButton<bool>(
-                      segments: [
-                        ButtonSegment<bool>(
-                          value: false,
-                          enabled: widget.allowedUtilityKinds.contains(
-                            'electricity',
-                          ),
-                          label: Text(loc.billTypeElectricity),
-                        ),
-                        ButtonSegment<bool>(
-                          value: true,
-                          enabled: widget.allowedUtilityKinds.contains('water'),
-                          label: Text(loc.billTypeWater),
-                        ),
-                      ],
-                      selected: {_isWater},
-                      onSelectionChanged:
-                          _saving
-                              ? null
-                              : (s) {
-                                _onBillTypeChanged(s.first);
-                              },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _dateController,
-                      readOnly: true,
-                      onTap: _saving ? null : () => _pickInvoiceDate(),
-                      keyboardType: TextInputType.none,
-                      validator: _validateRequired,
-                      decoration: deco(
-                        loc.invoiceDate,
-                        hint: 'yyyy-MM-dd',
-                        suffixIcon: IconButton(
-                          tooltip: loc.pickInvoiceDateAction,
-                          icon: Icon(
-                            Icons.calendar_today_outlined,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                          onPressed: _saving ? null : _pickInvoiceDate,
-                        ),
-                      ),
-                      style: TextStyle(color: textColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _totalController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: false,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[\d.,٫٬،]'),
-                        ),
-                      ],
-                      validator: _validatePositiveAmount,
-                      decoration: deco(
-                        loc.totalAmount,
-                        hint: '0.000',
-                        suffixText: loc.currencyOmr,
-                      ),
-                      style: TextStyle(color: textColor),
-                    ),
-                    confidenceBadge(widget.analysis.totalAmountConfidence),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _currentMonthController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: false,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[\d.,٫٬،]'),
-                        ),
-                      ],
-                      validator: _validateOptionalAmount,
-                      decoration: deco(
-                        loc.currentMonthCharge,
-                        hint: '0.000',
-                        suffixText: loc.currencyOmr,
-                      ),
-                      style: TextStyle(color: textColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _consumptionController,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                        signed: false,
-                      ),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(
-                          RegExp(r'[\d.,٫٬،]'),
-                        ),
-                      ],
-                      validator: _validatePositiveAmount,
-                      decoration: deco(
-                        loc.consumption,
-                        hint: _isWater ? '0' : '0',
-                        suffixText: consumptionSuffix,
-                      ),
-                      style: TextStyle(color: textColor),
-                    ),
-                    confidenceBadge(widget.analysis.consumptionConfidence),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _unitController,
-                      keyboardType: TextInputType.text,
-                      textCapitalization: TextCapitalization.none,
-                      validator: _validateRequired,
-                      decoration: deco(
-                        loc.consumptionUnitField,
-                        hint:
-                            _isWater
-                                ? loc.consumptionWaterHint
-                                : loc.consumptionElectricityHint,
-                      ),
-                      style: TextStyle(color: textColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _consumptionDaysController,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(3),
-                      ],
-                      validator: _validateOptionalDays,
-                      decoration: deco(loc.consumptionDaysLabel),
-                      style: TextStyle(color: textColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _invoiceController,
-                      keyboardType: TextInputType.text,
-                      validator: _validateRequired,
-                      decoration: deco(loc.invoiceNumberTitle),
-                      style: TextStyle(color: textColor),
-                    ),
-                    confidenceBadge(widget.analysis.invoiceConfidence),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _accountController,
-                      keyboardType: TextInputType.text,
-                      validator: _validateRequired,
-                      decoration: deco(loc.accountNumber),
-                      style: TextStyle(color: textColor),
-                    ),
-                    confidenceBadge(widget.analysis.accountConfidence),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _billingMonthTextController,
-                      keyboardType: TextInputType.text,
-                      textCapitalization: TextCapitalization.sentences,
-                      validator: _validateRequired,
-                      decoration: deco(loc.billingMonthTitle),
-                      style: TextStyle(color: textColor),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _billingMonthKeyController,
-                      keyboardType: TextInputType.text,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.allow(RegExp(r'[0-9\-]')),
-                        LengthLimitingTextInputFormatter(7),
-                      ],
-                      validator: _validateBillingKeyField,
-                      decoration: deco(
-                        loc.billingMonthKeyField,
-                        hint: '2025-03',
-                        suffixIcon: IconButton(
-                          tooltip: loc.pickBillingMonthAction,
-                          icon: Icon(
-                            Icons.date_range_outlined,
-                            color: AppColors.primary,
-                            size: 20,
-                          ),
-                          onPressed: _saving ? null : _pickBillingMonth,
-                        ),
-                      ),
-                      style: TextStyle(color: textColor),
-                    ),
-                    const SizedBox(height: 100),
-                  ],
-                ),
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                children: [
+                  Text(
+                    _loc.billReviewTitle,
+                    style: TextStyle(color: subtextColor, fontSize: 14),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _loc.billReviewHint,
+                    style: TextStyle(color: hintColor, fontSize: 12),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildToggle(),
+                  const SizedBox(height: 24),
+                  _buildField(_loc.invoiceDate, _dateController, icon: Icons.calendar_today_outlined, onTap: _pickInvoiceDate),
+                  _buildField(_loc.totalAmount, _totalController, suffix: 'OMR', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                  _buildField(_loc.consumption, _consumptionController, suffix: _isWater ? 'm³' : 'kWh', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                  _buildField(_loc.invoiceNumberTitle, _invoiceController, keyboardType: TextInputType.text),
+                  _buildField(_loc.accountNumber, _accountController, keyboardType: TextInputType.number),
+                  _buildField(_loc.billingMonthTitle, _billingMonthTextController, icon: Icons.calendar_month_outlined, onTap: _pickBillingMonth),
+                ],
               ),
             ),
           ),
-          SafeArea(
-            child: Padding(
-              padding: AppLayout.pagePadding,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed:
-                          _saving
-                              ? null
-                              : () => Navigator.of(context).pop(false),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Text(loc.cancel),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: FilledButton(
-                      onPressed: _saving ? null : _save,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child:
-                          _saving
-                              ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: AppLoadingIndicator(
-                                  size: AppLoadingSize.inline,
-                                  color: Colors.white,
-                                ),
-                              )
-                              : Text(loc.save),
-                    ),
-                  ),
-                ],
+          _buildBottomActions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToggle() {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.white10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _toggleItem(_loc.billTypeElectricity, !_isWater, () => _onBillTypeChanged(false)),
+          ),
+          Expanded(
+            child: _toggleItem(_loc.billTypeWater, _isWater, () => _onBillTypeChanged(true)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _toggleItem(String label, bool active, VoidCallback onTap) {
+    final cyan = const Color(0xFF00E5FF);
+    return GestureDetector(
+      onTap: active ? null : onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        decoration: BoxDecoration(
+          color: active ? cyan : Colors.transparent,
+          borderRadius: BorderRadius.circular(24),
+        ),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (active) ...[
+              const Icon(Icons.check, color: Color(0xFF121212), size: 16),
+              const SizedBox(width: 8),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                color: active ? const Color(0xFF121212) : Colors.white70,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildField(String label, TextEditingController controller, {String? suffix, IconData? icon, VoidCallback? onTap, TextInputType? keyboardType}) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: TextFormField(
+        controller: controller,
+        readOnly: true, // Always read-only as requested
+        onTap: onTap,
+        keyboardType: keyboardType,
+        textInputAction: TextInputAction.next,
+        style: const TextStyle(color: Colors.white, fontSize: 16),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+          floatingLabelBehavior: FloatingLabelBehavior.always,
+          suffixText: suffix,
+          suffixStyle: const TextStyle(color: Colors.white38),
+          suffixIcon: icon != null ? Icon(icon, color: Colors.blue[400], size: 20) : null,
+          filled: true,
+          fillColor: const Color(0xFF1E1E1E),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: const BorderSide(color: Colors.white10),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.blue[400]!, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomActions() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
+      decoration: const BoxDecoration(
+        color: Color(0xFF121212),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextButton(
+              onPressed: () => Navigator.pop(context),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: const Color(0xFF1E1E1E),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: Text(_loc.cancel, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: ElevatedButton(
+              onPressed: _saving ? null : _save,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: Colors.blue[700],
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: _saving
+                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : Text(_loc.save, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
             ),
           ),
         ],

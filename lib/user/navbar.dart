@@ -10,7 +10,12 @@ import 'mybills.dart';
 import 'setting.dart';
 
 class UserNavBar extends StatefulWidget {
-  /// Firebase Auth uid — used to reset tab state when the user session changes.
+  static final GlobalKey<_UserNavBarState> navKey = GlobalKey<_UserNavBarState>();
+
+  static void switchTab(int index, {String? chatbotMessage}) {
+    navKey.currentState?._updateIndex(index, chatbotMessage: chatbotMessage);
+  }
+
   final String uid;
   final String fullName;
   final Function(Locale)? onLanguageChanged;
@@ -31,12 +36,23 @@ class UserNavBar extends StatefulWidget {
 class _UserNavBarState extends State<UserNavBar> {
   int _currentIndex = 0;
   bool _blockedDialogShown = false;
+  String? _pendingChatbotMessage;
+  late String _fullName;
 
   @override
   void initState() {
     super.initState();
+    _fullName = widget.fullName;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       MultiAccountService.syncCredentialIfRememberedMatches();
+    });
+  }
+
+  void _updateIndex(int index, {String? chatbotMessage}) {
+    if (!mounted) return;
+    setState(() {
+      _currentIndex = index;
+      _pendingChatbotMessage = chatbotMessage;
     });
   }
 
@@ -46,136 +62,94 @@ class _UserNavBarState extends State<UserNavBar> {
     if (oldWidget.uid != widget.uid) {
       _currentIndex = 0;
       _blockedDialogShown = false;
+      _fullName = widget.fullName;
     }
-  }
-
-  Future<void> _handleBlockedUser(
-    BuildContext context,
-    AppLocalizations localizations,
-  ) async {
-    if (_blockedDialogShown) return;
-    _blockedDialogShown = true;
-    final supportMessage =
-        '${localizations.accountBlockedMessage}\n\n${localizations.contactUs}: ${localizations.supportPhoneValue}\n${localizations.email}: ${localizations.supportEmailValue}';
-    await showDialog<void>(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: Text(localizations.accountBlockedTitle),
-            content: Text(supportMessage),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: Text(localizations.ok),
-              ),
-            ],
-          ),
-    );
-    if (!context.mounted) return;
-    Navigator.of(
-      context,
-      rootNavigator: true,
-    ).popUntil((route) => route.isFirst);
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    await FirebaseAuth.instance.signOut();
-    if (uid != null && uid.isNotEmpty) {
-      await MultiAccountService.removeStoredAccount(uid);
-    }
-  }
-
-  bool _isBlockedValue(dynamic value) {
-    if (value is bool) return value;
-    if (value == null) return false;
-    final s = value.toString().trim().toLowerCase();
-    return s == 'true' || s == '1' || s == 'y' || s == 'yes';
   }
 
   @override
   Widget build(BuildContext context) {
-    final localizations =
-        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final localizations = AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
     final currentLocale = Localizations.localeOf(context);
     final user = FirebaseAuth.instance.currentUser;
 
-    Widget buildScaffold(String fullName) {
-      final pages = [
-        HomePage(
-          fullName: fullName,
-          onLanguageChanged: widget.onLanguageChanged,
-          currentLocale: currentLocale,
-        ),
-        MyBillsPage(
-          onLanguageChanged: widget.onLanguageChanged,
-          currentLocale: currentLocale,
-        ),
-        ChatbotPage(
-          onLanguageChanged: widget.onLanguageChanged,
-          currentLocale: currentLocale,
-        ),
-        SettingPage(
-          onLanguageChanged: widget.onLanguageChanged,
-          currentLocale: currentLocale,
-          fullName: fullName,
-        ),
-      ];
-
-      return Scaffold(
-        body: IndexedStack(
-          key: ValueKey<String>('user_pages_${widget.uid}'),
-          index: _currentIndex,
-          children: pages,
-        ),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          type: BottomNavigationBarType.fixed,
-          selectedItemColor: AppColors.primary,
-          unselectedItemColor: AppColors.textSecondary,
-          onTap: (index) => setState(() => _currentIndex = index),
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.home),
-              label: localizations.home,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.receipt_long),
-              label: localizations.myBills,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.smart_toy_outlined),
-              label: localizations.aiChatbot,
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.settings),
-              label: localizations.settings,
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (user == null) {
-      return buildScaffold(widget.fullName);
-    }
-
     return StreamBuilder<DatabaseEvent>(
-      stream: FirebaseDatabase.instance.ref('users/${user.uid}').onValue,
+      stream: user != null ? FirebaseDatabase.instance.ref('users/${user.uid}').onValue : null,
       builder: (context, snapshot) {
-        String fullName = widget.fullName;
-        final data = snapshot.data?.snapshot.value;
-        if (data is Map) {
+        if (snapshot.hasData && snapshot.data!.snapshot.value is Map) {
+          final data = snapshot.data!.snapshot.value as Map;
           final name = data['fullName']?.toString().trim();
           if (name != null && name.isNotEmpty) {
-            fullName = name;
+            _fullName = name;
           }
-          final isBlocked = _isBlockedValue(data['blocked']);
-          if (isBlocked) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _handleBlockedUser(context, localizations);
-            });
+          if (_isBlockedValue(data['blocked'])) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _handleBlockedUser(context, localizations));
           }
         }
-        return buildScaffold(fullName);
+
+        return Scaffold(
+          body: IndexedStack(
+            key: ValueKey<String>('user_stack_${widget.uid}'),
+            index: _currentIndex,
+            children: [
+              HomePage(
+                fullName: _fullName,
+                onLanguageChanged: widget.onLanguageChanged,
+                currentLocale: currentLocale,
+              ),
+              MyBillsPage(
+                onLanguageChanged: widget.onLanguageChanged,
+                currentLocale: currentLocale,
+              ),
+              ChatbotPage(
+                onLanguageChanged: widget.onLanguageChanged,
+                currentLocale: currentLocale,
+                initialMessage: _pendingChatbotMessage,
+              ),
+              SettingPage(
+                onLanguageChanged: widget.onLanguageChanged,
+                currentLocale: currentLocale,
+                fullName: _fullName,
+              ),
+            ],
+          ),
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _currentIndex,
+            type: BottomNavigationBarType.fixed,
+            selectedItemColor: AppColors.primary,
+            unselectedItemColor: AppColors.textSecondary,
+            onTap: (index) => _updateIndex(index),
+            items: [
+              BottomNavigationBarItem(icon: const Icon(Icons.home), label: localizations.home),
+              BottomNavigationBarItem(icon: const Icon(Icons.receipt_long), label: localizations.myBills),
+              BottomNavigationBarItem(icon: const Icon(Icons.smart_toy_outlined), label: localizations.aiChatbot),
+              BottomNavigationBarItem(icon: const Icon(Icons.settings), label: localizations.settings),
+            ],
+          ),
+        );
       },
     );
+  }
+
+  bool _isBlockedValue(dynamic value) {
+    if (value is bool) return value;
+    final s = value.toString().trim().toLowerCase();
+    return s == 'true' || s == '1' || s == 'yes';
+  }
+
+  Future<void> _handleBlockedUser(BuildContext context, AppLocalizations loc) async {
+    if (_blockedDialogShown) return;
+    _blockedDialogShown = true;
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text(loc.accountBlockedTitle),
+        content: Text(loc.accountBlockedMessage),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.ok))],
+      ),
+    );
+    await FirebaseAuth.instance.signOut();
+    if (!mounted) return;
+    Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
   }
 }

@@ -2,22 +2,27 @@ import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../data/bill_store.dart';
 import '../models/bill_summary.dart';
-import '../services/chat_config_service.dart';
 import '../services/openrouter_chat_service.dart';
 import '../widgets/chat_chart.dart';
 
 class ChatbotPage extends StatefulWidget {
   final Function(Locale)? onLanguageChanged;
   final Locale? currentLocale;
+  final String? initialMessage;
 
-  const ChatbotPage({super.key, this.onLanguageChanged, this.currentLocale});
+  const ChatbotPage({
+    super.key,
+    this.onLanguageChanged,
+    this.currentLocale,
+    this.initialMessage,
+  });
 
   @override
   State<ChatbotPage> createState() => _ChatbotPageState();
@@ -33,8 +38,6 @@ class _ChatbotPageState extends State<ChatbotPage>
   late final AnimationController _typingDotController;
 
   final OpenRouterChatService _chatService = OpenRouterChatService();
-  final ChatConfigService _chatConfigService = ChatConfigService();
-  ChatConfig _chatConfig = const ChatConfig();
 
   @override
   void initState() {
@@ -50,16 +53,22 @@ class _ChatbotPageState extends State<ChatbotPage>
         timestamp: DateTime.now(),
       ),
     );
-    _loadChatConfig();
+    if (widget.initialMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _controller.text = widget.initialMessage!;
+        _sendMessage();
+      });
+    }
   }
 
-  Future<void> _loadChatConfig() async {
-    try {
-      final config = await _chatConfigService.fetchConfig();
-      if (!mounted) return;
-      setState(() => _chatConfig = config);
-    } catch (e) {
-      debugPrint('Chat config load failed: $e');
+  @override
+  void didUpdateWidget(ChatbotPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialMessage != null &&
+        widget.initialMessage != oldWidget.initialMessage) {
+      _controller.text = widget.initialMessage!;
+      _sendMessage();
     }
   }
 
@@ -109,9 +118,14 @@ class _ChatbotPageState extends State<ChatbotPage>
       _addBotMessage(responseText);
     } catch (e) {
       debugPrint('Chat API request failed: $e');
-      String errorMessage = 'AI service is unavailable now. Try again later.';
+      final isAr = localizations.locale.languageCode == 'ar';
+      String errorMessage = isAr 
+          ? 'خدمة الذكاء الاصطناعي غير متوفرة حالياً. يرجى المحاولة لاحقاً.' 
+          : 'AI service is unavailable now. Try again later.';
       if (e.toString().contains('API key is missing')) {
-        errorMessage = 'Service Configuration Error: Please check your API settings.';
+        errorMessage = isAr 
+            ? 'خطأ في إعدادات الخدمة: يرجى التحقق من مفتاح الـ API.' 
+            : 'Service Configuration Error: Please check your API settings.';
       }
       _addBotMessage(errorMessage);
     } finally {
@@ -419,12 +433,15 @@ $billsContext
                         child: SizedBox(
                           width: 46,
                           height: 46,
-                          child: Icon(
-                            Icons.send_rounded,
-                            color: Colors.white.withValues(
-                              alpha: _isSending ? 0.45 : 1,
+                          child: Transform.scale(
+                            scaleX: Directionality.of(context) == TextDirection.rtl ? -1 : 1,
+                            child: Icon(
+                              Icons.send_rounded,
+                              color: Colors.white.withValues(
+                                alpha: _isSending ? 0.45 : 1,
+                              ),
+                              size: 22,
                             ),
-                            size: 22,
                           ),
                         ),
                       ),

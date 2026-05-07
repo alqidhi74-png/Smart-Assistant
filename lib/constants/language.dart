@@ -135,6 +135,8 @@ class AppLocalizations {
   String get block => locale.languageCode == 'ar' ? 'حظر' : 'Block';
   String get unblock => locale.languageCode == 'ar' ? 'إلغاء الحظر' : 'Unblock';
   String get download => locale.languageCode == 'ar' ? 'تحميل' : 'Download';
+  String get confirm => locale.languageCode == 'ar' ? 'تأكيد' : 'Confirm';
+
 
   String pdfExportSaved(String path) =>
       locale.languageCode == 'ar'
@@ -804,6 +806,27 @@ Account data and passwords are protected and processed securely. You may request
           ? 'سيظهر الاستهلاك في الرسوم عند ضبط شهر الفوترة والاستهلاك.'
           : 'Charts update when billing month and consumption are set.';
 
+  String billComparisonIncrease(String type, String pct) =>
+      locale.languageCode == 'ar'
+          ? 'تنبيه: فاتورة $type ارتفعت بنسبة $pct% عن الشهر السابق.'
+          : 'Alert: $type bill increased by $pct% compared to last month.';
+
+  String billComparisonDecrease(String type, String pct) =>
+      locale.languageCode == 'ar'
+          ? 'رائع! فاتورة $type انخفضت بنسبة $pct% عن الشهر السابق.'
+          : 'Great! $type bill decreased by $pct% compared to last month.';
+
+  String billComparisonEqual(String type) =>
+      locale.languageCode == 'ar'
+          ? 'فاتورة $type لم تتغير عن الشهر السابق.'
+          : '$type bill has no change from last month.';
+
+  String get billTypeWaterLabel =>
+      locale.languageCode == 'ar' ? 'المياه' : 'Water';
+
+  String get billTypeElectricityLabel =>
+      locale.languageCode == 'ar' ? 'الكهرباء' : 'Electricity';
+
   String get billReviewTitle =>
       locale.languageCode == 'ar' ? 'مراجعة الفاتورة' : 'Review bill';
 
@@ -1099,6 +1122,14 @@ Account data and passwords are protected and processed securely. You may request
   String get add => locale.languageCode == 'ar' ? 'إضافة' : 'Add';
   String get update => locale.languageCode == 'ar' ? 'تحديث' : 'Update';
   String get delete => locale.languageCode == 'ar' ? 'حذف' : 'Delete';
+
+  String get nextBillPredictionTitle =>
+      locale.languageCode == 'ar' ? 'توقع الفاتورة القادمة 🔮' : 'Next Bill Prediction 🔮';
+
+  String nextBillPredictionText(String type, double amount) =>
+      locale.languageCode == 'ar'
+          ? 'بناءً على تاريخك، من المتوقع أن تكون فاتورة $type القادمة حوالي ${amount.toStringAsFixed(3)} ريال.'
+          : 'Based on your history, your next $type bill is expected to be around ${amount.toStringAsFixed(3)} OMR.';
 }
 
 class _AppLocalizationsDelegate

@@ -333,7 +333,10 @@ class _HomePageState extends State<HomePage> {
                                                   items
                                                       .map(
                                                         (item) => _StatTile(
-                                                          title: item.name,
+                                                          title: _localizedCategoryName(
+                                                            localizations,
+                                                            item.name,
+                                                          ),
                                                           value:
                                                               item.count
                                                                   .toString(),
@@ -601,6 +604,7 @@ class _HomePageState extends State<HomePage> {
                                           secondaryText: snap.secondaryLine,
                                           tertiaryText: snap.tertiaryLine,
                                           alertText: snap.alertLine,
+                                          predictionText: snap.predictionLine,
                                           categoryInsightText: categoryInsight,
                                           categoriesCount:
                                               dynamicCategories.length,
@@ -1642,6 +1646,7 @@ class _SmartAnalyticsCard extends StatelessWidget {
   final String secondaryText;
   final String? tertiaryText;
   final String? alertText;
+  final String? predictionText;
   final String? categoryInsightText;
   final int categoriesCount;
   final VoidCallback? onCategoriesTap;
@@ -1652,6 +1657,7 @@ class _SmartAnalyticsCard extends StatelessWidget {
     required this.secondaryText,
     this.tertiaryText,
     this.alertText,
+    this.predictionText,
     this.categoryInsightText,
     required this.categoriesCount,
     this.onCategoriesTap,
@@ -1710,6 +1716,10 @@ class _SmartAnalyticsCard extends StatelessWidget {
                 if (alertText != null && alertText!.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   _InsightAlertRow(text: alertText!),
+                ],
+                if (predictionText != null && predictionText!.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  _InsightPredictionSection(text: predictionText!),
                 ],
                 if (categoryInsightText != null &&
                     categoryInsightText!.isNotEmpty) ...[
@@ -1781,6 +1791,58 @@ class _InsightAlertRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _InsightPredictionSection extends StatelessWidget {
+  final String text;
+
+  const _InsightPredictionSection({required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final primaryColor = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+    final bgColor = isDark ? const Color(0xFF1B5E20).withValues(alpha: 0.2) : const Color(0xFFE8F5E9);
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: primaryColor.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, color: primaryColor, size: 16),
+              const SizedBox(width: 8),
+              Text(
+                loc.nextBillPredictionTitle,
+                style: TextStyle(
+                  color: primaryColor,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            text,
+            style: TextStyle(
+              color: isDark ? Colors.white : AppColors.textDark,
+              fontSize: 12,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

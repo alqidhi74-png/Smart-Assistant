@@ -14,7 +14,12 @@ import '../services/image_preprocess_service.dart';
 import '../services/ocr_service.dart';
 import '../services/pdf_text_service.dart';
 import '../utils/app_snackbar.dart';
+import '../services/bill_ai_extraction_service.dart';
 import '../utils/loading_overlay.dart';
+import '../models/bill_summary.dart';
+import '../services/bill_comparison_service.dart';
+import '../data/bill_store.dart';
+import '../utils/top_notification.dart';
 import 'bill_review_page.dart';
 
 class UploadBillPage extends StatefulWidget {
@@ -30,6 +35,8 @@ class _UploadBillPageState extends State<UploadBillPage> {
   final ImagePreprocessService _imagePreprocessService =
       ImagePreprocessService();
   final PdfTextService _pdfTextService = PdfTextService();
+  final BillAiExtractionService _aiExtractionService = BillAiExtractionService();
+  String? _imagePath;
   bool _isProcessing = false;
 
   Future<void> _pickPdf() async {
@@ -59,6 +66,7 @@ class _UploadBillPageState extends State<UploadBillPage> {
   Future<void> _processPdfBytes(Uint8List bytes) async {
     setState(() {
       _isProcessing = true;
+      _imagePath = null; // No preview for PDF usually or we could extract one
     });
     if (mounted) LoadingOverlay.show(context);
     try {
@@ -118,6 +126,7 @@ class _UploadBillPageState extends State<UploadBillPage> {
   Future<void> _processImage(String path, String fileName) async {
     setState(() {
       _isProcessing = true;
+      _imagePath = path;
     });
     if (mounted) LoadingOverlay.show(context);
 
@@ -155,7 +164,30 @@ class _UploadBillPageState extends State<UploadBillPage> {
       return;
     }
 
-    final analysis = BillNlpPipeline.analyzeBill(text);
+    // Try AI Extraction first, then fallback to NLP if needed
+    BillAnalysisResult analysis;
+    try {
+      analysis = await _aiExtractionService.extractStructuredData(text);
+      // If AI failed to identify the type or amount, try NLP fallback for those specific fields
+      if (analysis.billType == null || (analysis.totalAmount ?? 0) <= 0) {
+        final fallback = BillNlpPipeline.analyzeBill(text);
+        analysis = BillAnalysisResult(
+          rawText: text,
+          billType: analysis.billType ?? fallback.billType,
+          accountNumber: analysis.accountNumber ?? fallback.accountNumber,
+          invoiceNumber: analysis.invoiceNumber ?? fallback.invoiceNumber,
+          invoiceDate: analysis.invoiceDate ?? fallback.invoiceDate,
+          totalAmount: analysis.totalAmount ?? fallback.totalAmount,
+          consumptionValue: analysis.consumptionValue ?? fallback.consumptionValue,
+          consumptionUnit: analysis.consumptionUnit ?? fallback.consumptionUnit,
+          billingMonthText: analysis.billingMonthText ?? fallback.billingMonthText,
+          billingMonthKey: analysis.billingMonthKey ?? fallback.billingMonthKey,
+        );
+      }
+    } catch (_) {
+      analysis = BillNlpPipeline.analyzeBill(text);
+    }
+
     if (!BillAnalysisService.isAcceptedUtilityBill(analysis)) {
       if (mounted) LoadingOverlay.hide();
       if (mounted) setState(() => _isProcessing = false);
@@ -207,27 +239,69 @@ class _UploadBillPageState extends State<UploadBillPage> {
     LoadingOverlay.hide();
     setState(() => _isProcessing = false);
 
-    final result = await Navigator.push<String>(
+    final result = await Navigator.push<dynamic>(
       context,
-      MaterialPageRoute<String>(
+      MaterialPageRoute<dynamic>(
         builder:
             (context) => BillReviewPage(
               analysis: analysis,
               allowedUtilityKinds: allowedKinds,
+              imagePath: _imagePath,
             ),
       ),
     );
     if (!mounted) return;
-    if (result != null) {
+    if (result != null && result is Map) {
+      final status = result['status'];
       final primaryMessage =
-          result == 'updated'
+          status == 'updated'
               ? _localizations.billUpdatedForMonth
               : _localizations.billSavedToMyBills;
+      
       _showMessage(
         '$primaryMessage\n${_localizations.billSavedChartsUpdatedHint}',
         isSuccess: true,
       );
+
+      // Comparison Logic
+      _showComparisonNotification(result['billType'], result['billingMonthKey']);
     }
+  }
+
+  void _showComparisonNotification(String? type, String? monthKey) {
+    if (type == null || monthKey == null) return;
+    
+    // Give it a small delay to ensure BillStore has updated from the saveBill call
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted) return;
+      
+      final bills = BillStore.instance.bills.value;
+      final newBill = bills.firstWhere(
+        (b) => b.type.toLowerCase() == type.toLowerCase() && b.billingMonthKey == monthKey,
+        orElse: () => const BillSummary(id: '', type: '', dateText: '', createdAt: 0),
+      );
+
+      if (newBill.id.isEmpty) return;
+
+      final comparison = BillComparisonService.compareWithPreviousMonth(newBill, bills);
+      if (!comparison.hasPrevious) return;
+
+      final loc = _localizations;
+      final typeLabel = comparison.type.toLowerCase() == 'water' 
+          ? loc.billTypeWaterLabel 
+          : loc.billTypeElectricityLabel;
+      
+      String msg;
+      if (comparison.percentageChange < 0.1) {
+        msg = loc.billComparisonEqual(typeLabel);
+      } else if (comparison.isIncrease) {
+        msg = loc.billComparisonIncrease(typeLabel, comparison.percentageChange.toStringAsFixed(1));
+      } else {
+        msg = loc.billComparisonDecrease(typeLabel, comparison.percentageChange.toStringAsFixed(1));
+      }
+
+      TopNotification.show(context, message: msg, isError: comparison.isIncrease);
+    });
   }
 
   @override

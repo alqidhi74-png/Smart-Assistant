@@ -138,7 +138,7 @@ class _SignedInRouter extends StatelessWidget {
           );
         }
         return UserNavBar(
-          key: ValueKey<String>('user_$uid'),
+          key: UserNavBar.navKey,
           uid: uid,
           fullName: fullName,
           onLanguageChanged: onLanguageChanged,

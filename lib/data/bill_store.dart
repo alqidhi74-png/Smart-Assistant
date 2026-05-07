@@ -5,6 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
 import '../models/bill_summary.dart';
 import '../utils/app_error_reporter.dart';
+import 'notification_store.dart';
 
 class BillStore {
   BillStore._();
@@ -109,6 +110,13 @@ class BillStore {
       'createdAt': bill.createdAt,
     });
     await ensureListening();
+    
+    NotificationStore.instance.addNotification(
+      title: existingId != null ? 'Bill Updated' : 'New Bill Added',
+      body: '${bill.type} bill for ${bill.billingMonthText ?? 'this month'} has been ${existingId != null ? 'updated' : 'saved'} successfully.',
+      type: NotificationType.success,
+    );
+    
     return existingId != null;
   }
 
@@ -162,6 +170,12 @@ class BillStore {
     await FirebaseDatabase.instance
         .ref('my_bills/${user.uid}/$billId')
         .remove();
+        
+    NotificationStore.instance.addNotification(
+      title: 'Bill Deleted',
+      body: 'The bill has been removed from your history.',
+      type: NotificationType.warning,
+    );
   }
 
   List<BillSummary> _mapBills(Object? data) {

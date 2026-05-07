@@ -9,12 +9,14 @@ class SmartAnalyticsSnapshot {
   final String secondaryLine;
   final String? tertiaryLine;
   final String? alertLine;
+  final String? predictionLine;
 
   const SmartAnalyticsSnapshot({
     required this.primaryLine,
     required this.secondaryLine,
     this.tertiaryLine,
     this.alertLine,
+    this.predictionLine,
   });
 }
 
@@ -98,11 +100,24 @@ abstract final class SmartAnalyticsInsights {
       );
     }
 
+    String? prediction;
+    final predE = _predictNextAmount(bills, isElectricity: true, locale: locale);
+    final predW = _predictNextAmount(bills, isElectricity: false, locale: locale);
+
+    if (predE != null && predE > 0 && predW != null && predW > 0) {
+      prediction = '${loc.nextBillPredictionText(loc.billTypeElectricityLabel, predE)}\n\n${loc.nextBillPredictionText(loc.billTypeWaterLabel, predW)}';
+    } else if (predE != null && predE > 0) {
+      prediction = loc.nextBillPredictionText(loc.billTypeElectricityLabel, predE);
+    } else if (predW != null && predW > 0) {
+      prediction = loc.nextBillPredictionText(loc.billTypeWaterLabel, predW);
+    }
+
     return SmartAnalyticsSnapshot(
       primaryLine: primary,
       secondaryLine: secondary,
       tertiaryLine: tertiary,
       alertLine: alert,
+      predictionLine: prediction,
     );
   }
 
@@ -143,5 +158,24 @@ abstract final class SmartAnalyticsInsights {
     final avg = baseline.reduce((a, b) => a + b) / 3;
     if (avg <= 0) return null;
     return last / avg;
+  }
+
+  static double? _predictNextAmount(
+    List<BillSummary> bills, {
+    required bool isElectricity,
+    required Locale locale,
+  }) {
+    final s = buildMonthlyAmountSeries(
+      bills,
+      isElectricity: isElectricity,
+      locale: locale,
+      months: 6,
+    );
+    // Use last 3 months with data as baseline
+    final values = s.values.where((v) => v > 0).toList();
+    if (values.isEmpty) return null;
+    final n = values.length > 3 ? 3 : values.length;
+    final slice = values.sublist(values.length - n);
+    return slice.reduce((a, b) => a + b) / n;
   }
 }
