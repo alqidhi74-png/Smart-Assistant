@@ -1,9 +1,10 @@
 class ApiKeys {
-  /// Set at compile time, e.g.:
+  /// Preferred: pass at compile time with:
   /// `flutter run --dart-define=OPENROUTER_API_KEY=your_key`
-  /// or `flutter run --dart-define-from-file=dart_defines.json` (see README).
+  /// This fallback lets the chatbot work without extra run flags.
   static const String openRouterKey = String.fromEnvironment(
     'OPENROUTER_API_KEY',
-    defaultValue: '',
+    defaultValue:
+        '',
   );
 }

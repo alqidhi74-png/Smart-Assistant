@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../constants/app_layout.dart';
 import '../utils/admin_pdf_io.dart';
+import '../utils/admin_users_export_helper.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../utils/app_error_reporter.dart';
@@ -828,26 +829,20 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
     String baseName,
   ) async {
     final doc = pw.Document();
-    final rows = [
-      [
-        'User Name',
-        'Email',
-        'Phone',
-        'Status',
-        'Role',
-        'Joined',
-      ],
-      ...users.map((user) {
-        return [
-          user.fullName.isEmpty ? 'Unknown User' : user.fullName,
-          user.email,
-          user.phone,
-          user.isBlocked ? 'Blocked' : 'Active',
-          user.isAdmin ? 'Admin' : 'User',
-          _formatJoinedDateTime(user.createdAt),
-        ];
-      }),
-    ];
+    final rows = buildUsersExportRows(
+      users
+          .map(
+            (u) => UserExportEntry(
+              fullName: u.fullName,
+              email: u.email,
+              phone: u.phone,
+              isBlocked: u.isBlocked,
+              isAdmin: u.isAdmin,
+              createdAt: u.createdAt,
+            ),
+          )
+          .toList(),
+    );
     doc.addPage(
       pw.MultiPage(
         pageFormat: PdfPageFormat.a4.landscape,
@@ -896,15 +891,7 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
       ),
     );
     final directory = await getAdminDownloadDirectory();
-    final now = DateTime.now();
-    final stamp =
-        '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}_'
-        '${now.hour.toString().padLeft(2, '0')}-${now.minute.toString().padLeft(2, '0')}';
-    final normalizedBase = safeExportFileName(baseName);
-    final fileName =
-        normalizedBase == 'all_users'
-            ? 'Users-Export_$stamp.pdf'
-            : 'User-Export_${normalizedBase}_$stamp.pdf';
+    final fileName = buildUsersExportFileName(baseName, DateTime.now());
     final file = File('${directory.path}/$fileName');
     await file.writeAsBytes(await doc.save());
     return file;
@@ -1024,11 +1011,6 @@ class _AdminUserDetailsPageState extends State<AdminUserDetailsPage> {
     return DateFormat('yyyy-MM-dd').format(date);
   }
 
-  String _formatJoinedDateTime(int? timestampMs) {
-    if (timestampMs == null) return '-';
-    final date = DateTime.fromMillisecondsSinceEpoch(timestampMs);
-    return DateFormat('yyyy-MM-dd hh:mm a').format(date);
-  }
 
   String _initials(String name) {
     final parts = name.trim().split(' ');
