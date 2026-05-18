@@ -118,14 +118,9 @@ class _ChatbotPageState extends State<ChatbotPage>
       _addBotMessage(responseText);
     } catch (e) {
       debugPrint('Chat API request failed: $e');
-      final isAr = localizations.locale.languageCode == 'ar';
-      String errorMessage = isAr 
-          ? 'خدمة الذكاء الاصطناعي غير متوفرة حالياً. يرجى المحاولة لاحقاً.' 
-          : 'AI service is unavailable now. Try again later.';
+      var errorMessage = localizations.chatbotServiceUnavailable;
       if (e.toString().contains('API key is missing')) {
-        errorMessage = isAr 
-            ? 'خطأ في إعدادات الخدمة: يرجى التحقق من مفتاح الـ API.' 
-            : 'Service Configuration Error: Please check your API settings.';
+        errorMessage = localizations.chatbotApiConfigError;
       }
       _addBotMessage(errorMessage);
     } finally {

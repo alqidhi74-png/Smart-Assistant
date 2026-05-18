@@ -27,14 +27,11 @@ class BillStore {
   }
 
   Future<void> ensureListening() async {
-    if (_listening) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       initialLoading.value = false;
       return;
     }
-    _listening = true;
-    final ref = FirebaseDatabase.instance.ref('my_bills/${user.uid}');
 
     void stopLoading() {
       if (initialLoading.value) {
@@ -42,8 +39,29 @@ class BillStore {
       }
     }
 
+    // Never leave the home screen spinner running indefinitely.
+    Future.delayed(const Duration(seconds: 8), stopLoading);
+
+    if (_listening) {
+      if (initialLoading.value) {
+        unawaited(
+          refresh()
+              .then((_) => stopLoading())
+              .catchError((Object e, StackTrace st) {
+                AppErrorReporter.debug('BillStore refresh while loading', e, st);
+                stopLoading();
+              }),
+        );
+      }
+      return;
+    }
+
+    _listening = true;
+    final ref = FirebaseDatabase.instance.ref('my_bills/${user.uid}');
+
     ref
         .get()
+        .timeout(const Duration(seconds: 12))
         .then((snapshot) {
           bills.value = _mapBills(snapshot.value);
           stopLoading();
@@ -68,8 +86,6 @@ class BillStore {
         stopLoading();
       },
     );
-
-    Future.delayed(const Duration(seconds: 10), stopLoading);
   }
 
   Future<void> refresh() async {

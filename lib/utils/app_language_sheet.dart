@@ -18,7 +18,7 @@ String languageDisplayName(Locale locale) {
   }
 }
 
-/// Bottom sheet: العربية / English with check on the active language (same as user settings).
+/// Bottom sheet to pick Arabic or English (same options as user settings).
 Future<void> showAppLanguageSheet(
   BuildContext context, {
   required void Function(Locale)? onLanguageChanged,

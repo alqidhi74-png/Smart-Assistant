@@ -50,8 +50,8 @@ class _MyBillsPageState extends State<MyBillsPage> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        _selectionMode 
-                          ? (loc.locale.languageCode == 'ar' ? 'تم اختيار ${_selectedIds.length}' : '${_selectedIds.length} Selected') 
+                        _selectionMode
+                          ? loc.selectedBillsCount(_selectedIds.length)
                           : loc.myBills,
                         style: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold),
                       ),
@@ -132,7 +132,7 @@ class _MyBillsPageState extends State<MyBillsPage> {
           onChanged: (v) => setState(() => _searchQuery = v),
           style: TextStyle(color: textColor),
           decoration: InputDecoration(
-            hintText: loc.locale.languageCode == 'ar' ? 'البحث في الفواتير...' : 'Search bills...',
+            hintText: loc.searchBillsPlaceholder,
             hintStyle: TextStyle(color: isDark ? Colors.white38 : Colors.grey[400], fontSize: 14),
             prefixIcon: Icon(Icons.search, color: isDark ? Colors.white38 : Colors.grey[400], size: 20),
             suffixIcon: PopupMenuButton<BillSortOrder>(
@@ -141,10 +141,10 @@ class _MyBillsPageState extends State<MyBillsPage> {
               offset: const Offset(0, 40),
               onSelected: (order) => setState(() => _sortOrder = order),
               itemBuilder: (context) => [
-                PopupMenuItem(enabled: false, child: Text(loc.locale.languageCode == 'ar' ? 'الترتيب والتصفية' : 'Sort & Filter', style: TextStyle(color: isDark ? Colors.white54 : Colors.grey[600], fontSize: 11, fontWeight: FontWeight.bold))),
+                PopupMenuItem(enabled: false, child: Text(loc.sortAndFilter, style: TextStyle(color: isDark ? Colors.white54 : Colors.grey[600], fontSize: 11, fontWeight: FontWeight.bold))),
                 const PopupMenuDivider(),
-                PopupMenuItem(value: BillSortOrder.newestFirst, child: Row(children: [Icon(Icons.calendar_month_outlined, size: 16, color: _sortOrder == BillSortOrder.newestFirst ? Colors.blue : Colors.grey), const SizedBox(width: 8), Text(loc.locale.languageCode == 'ar' ? 'التاريخ (الأحدث)' : 'Date (Newest)', style: TextStyle(color: textColor, fontSize: 13))])),
-                PopupMenuItem(value: BillSortOrder.oldestFirst, child: Row(children: [Icon(Icons.history, size: 16, color: _sortOrder == BillSortOrder.oldestFirst ? Colors.blue : Colors.grey), const SizedBox(width: 8), Text(loc.locale.languageCode == 'ar' ? 'التاريخ (الأقدم)' : 'Date (Oldest)', style: TextStyle(color: textColor, fontSize: 13))])),
+                PopupMenuItem(value: BillSortOrder.newestFirst, child: Row(children: [Icon(Icons.calendar_month_outlined, size: 16, color: _sortOrder == BillSortOrder.newestFirst ? Colors.blue : Colors.grey), const SizedBox(width: 8), Text(loc.sortByDateNewest, style: TextStyle(color: textColor, fontSize: 13))])),
+                PopupMenuItem(value: BillSortOrder.oldestFirst, child: Row(children: [Icon(Icons.history, size: 16, color: _sortOrder == BillSortOrder.oldestFirst ? Colors.blue : Colors.grey), const SizedBox(width: 8), Text(loc.sortByDateOldest, style: TextStyle(color: textColor, fontSize: 13))])),
               ],
             ),
             border: InputBorder.none,
@@ -156,51 +156,82 @@ class _MyBillsPageState extends State<MyBillsPage> {
   }
 
   Widget _buildDynamicSummarySection(AppLocalizations loc, bool isDark, Color textColor, Map<String, _CategoryData> categories) {
-    return Container(
-      height: 115,
-      margin: const EdgeInsets.only(top: 8),
-      child: ValueListenableBuilder<List<BillSummary>>(
-        valueListenable: BillStore.instance.bills,
-        builder: (context, bills, _) {
-          final stats = _calculateDynamicStats(bills);
-          if (stats.isEmpty) return const SizedBox.shrink();
+    return ValueListenableBuilder<List<BillSummary>>(
+      valueListenable: BillStore.instance.bills,
+      builder: (context, bills, _) {
+        final stats = _calculateDynamicStats(bills);
+        if (stats.isEmpty) return const SizedBox.shrink();
 
-          return ListView.builder(
+        final entries = stats.entries.toList();
+
+        Widget buildCard(int index) {
+          final entry = entries[index];
+          final type = entry.key;
+          final data = entry.value;
+          final cat = _findCategoryByName(categories, type);
+          final style = cat?.style ?? CategoryRtdbStyle.fallbackForName(type);
+
+          final sameType = bills.where((b) => b.type == type).toList();
+          String? categoryTip;
+          if (sameType.length >= 2) {
+            final diff = _calculateUsageDiff(sameType[0], sameType[1]);
+            if (diff != null && diff > 0) {
+              categoryTip = _generateCategorySpecificTip(type, diff, loc);
+            }
+          }
+
+          return _SummaryCard(
+            title: loc.localizedBillTypeName(cat?.name ?? type),
+            amount: data['amount'] ?? 0,
+            usage: data['usage'] ?? 0,
+            unit: _getUnitForType(type),
+            icon: style.icon,
+            color: style.cardColor,
+            isDark: isDark,
+            tip: categoryTip,
+            onTipTap: categoryTip != null
+                ? () => _showTipSheet(
+                    categoryTip!,
+                    cat?.name ?? type,
+                    style.icon,
+                    style.cardColor,
+                    isDark,
+                  )
+                : null,
+          );
+        }
+
+        if (entries.length <= 3) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var i = 0; i < entries.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 12),
+                  Expanded(child: buildCard(i)),
+                ],
+              ],
+            ),
+          );
+        }
+
+        return SizedBox(
+          height: 118,
+          child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            itemCount: stats.length,
-            itemBuilder: (ctx, index) {
-              final entry = stats.entries.elementAt(index);
-              final type = entry.key;
-              final data = entry.value;
-              final cat = _findCategoryByName(categories, type);
-              final style = cat?.style ?? CategoryRtdbStyle.fallbackForName(type);
-              
-              // Find tip for this specific category
-              final sameType = bills.where((b) => b.type == type).toList();
-              String? categoryTip;
-              if (sameType.length >= 2) {
-                final diff = _calculateUsageDiff(sameType[0], sameType[1]);
-                if (diff != null && diff > 0) {
-                  categoryTip = _generateCategorySpecificTip(type, diff, loc);
-                }
-              }
-
-              return _SummaryCard(
-                title: cat != null ? cat.name : (loc.locale.languageCode == 'ar' ? (type == 'Electricity' ? 'الكهرباء' : (type == 'Water' ? 'المياه' : type)) : type),
-                amount: data['amount'] ?? 0,
-                usage: data['usage'] ?? 0,
-                unit: _getUnitForType(type),
-                icon: style.icon,
-                color: style.cardColor,
-                isDark: isDark,
-                tip: categoryTip,
-                onTipTap: categoryTip != null ? () => _showTipSheet(categoryTip!, cat?.name ?? type, style.icon, style.cardColor, isDark) : null,
-              );
-            },
-          );
-        },
-      ),
+            itemCount: entries.length,
+            itemBuilder: (ctx, index) => SizedBox(
+              width: MediaQuery.sizeOf(context).width * 0.42,
+              child: Padding(
+                padding: EdgeInsets.only(right: index < entries.length - 1 ? 12 : 0),
+                child: buildCard(index),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -237,7 +268,7 @@ class _MyBillsPageState extends State<MyBillsPage> {
                   Expanded(
                     child: Text(
                       tip,
-                      textAlign: AppLocalizations.of(context)?.locale.languageCode == 'ar' ? TextAlign.right : TextAlign.left,
+                      textAlign: TextAlign.start,
                       style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 14, height: 1.5),
                     ),
                   ),
@@ -250,7 +281,10 @@ class _MyBillsPageState extends State<MyBillsPage> {
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(context),
                 style: ElevatedButton.styleFrom(backgroundColor: color, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                child: Text(AppLocalizations.of(context)?.locale.languageCode == 'ar' ? 'فهمت' : 'Got it', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(
+                  AppLocalizations.of(context)?.gotIt ?? 'Got it',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -261,52 +295,73 @@ class _MyBillsPageState extends State<MyBillsPage> {
   }
 
   String _generateCategorySpecificTip(String type, double diff, AppLocalizations loc) {
-    final isAr = loc.locale.languageCode == 'ar';
     final month = DateTime.now().month;
     final isSummer = month >= 5 && month <= 10;
-    
-    String valStr;
-    if (diff > 100) {
-      valStr = isAr ? 'كبيرة جداً' : 'significantly';
-    } else {
-      valStr = '${diff.toStringAsFixed(0)}%';
-    }
+    final valStr = diff > 100
+        ? loc.tipUsageVeryHigh
+        : '${diff.toStringAsFixed(0)}%';
 
     if (type.toLowerCase().contains('electric') || type.contains('كهرب')) {
-      if (isSummer) {
-        return isAr
-          ? 'نظراً لارتفاع درجات الحرارة، هناك زيادة ملحوظة في الاستهلاك. السبب المرجح هو أجهزة التكييف؛ نوصي بتنظيف الفلاتر وضبط الحرارة على 24 درجة.'
-          : 'Due to summer heat, usage is up $valStr. Likely cause: ACs; try cleaning filters and setting temp to 24°C.';
-      } else {
-        return isAr
-          ? 'لاحظنا ارتفاعاً في فاتورة الكهرباء. في هذا الموسم، غالباً ما تكون سخانات المياه هي المسبب الرئيسي لزيادة الاستهلاك.'
-          : 'Electricity is up $valStr. During this season, water heaters or heating appliances are often the main cause.';
-      }
-    } else if (type.toLowerCase().contains('water') || type.contains('مياه')) {
-      return isAr
-        ? 'فاتورة المياه مرتفعة بشكل غير معتاد. ننصح بفحص الأنابيب الخارجية أو نظام الري، حيث تعد التسريبات الخفية السبب الأكثر شيوعاً للزيادة.'
-        : 'Water usage increased by $valStr. We suggest checking external pipes or irrigation; hidden leaks are the most common cause.';
-    } else {
-      return isAr
-        ? 'فاتورة $type مرتفعة هذا الشهر. نوصي بمراجعة نمط الاستخدام لتحديد الأجهزة التي تستهلك طاقة أكبر.'
-        : '$type bills rose by $valStr. Reviewing your usage patterns this month can help identify the appliance causing the spike.';
+      return isSummer
+          ? loc.categoryTipElectricitySummer(valStr)
+          : loc.categoryTipElectricityGeneral(valStr);
     }
+    if (type.toLowerCase().contains('water') || type.contains('مياه')) {
+      return loc.categoryTipWater(valStr);
+    }
+    return loc.categoryTipGeneric(type, valStr);
   }
 
   Widget _buildDynamicFilters(AppLocalizations loc, bool isDark, Map<String, _CategoryData> categories) {
+    final isWide = MediaQuery.sizeOf(context).width >= 600;
+    final chips = <Widget>[
+      _FilterChip(
+        label: loc.filterAll,
+        icon: Icons.grid_view_rounded,
+        selected: _selectedFilterKey == null,
+        color: const Color(0xFF5C6BC0),
+        onTap: () => setState(() => _selectedFilterKey = null),
+        isDark: isDark,
+        expanded: true,
+        isWide: isWide,
+      ),
+      ...categories.values.map(
+        (cat) => _FilterChip(
+          label: loc.localizedBillTypeName(cat.name),
+          icon: cat.style.icon,
+          selected: _selectedFilterKey == cat.name,
+          color: cat.style.cardColor,
+          onTap: () => setState(() => _selectedFilterKey = cat.name),
+          isDark: isDark,
+          expanded: true,
+          isWide: isWide,
+        ),
+      ),
+    ];
+
+    if (chips.length <= 4) {
+      return Padding(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, isWide ? 16 : 12),
+        child: Row(
+          children: [
+            for (var i = 0; i < chips.length; i++) ...[
+              if (i > 0) SizedBox(width: isWide ? 12 : 8),
+              Expanded(child: chips[i]),
+            ],
+          ],
+        ),
+      );
+    }
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          _FilterChip(label: loc.locale.languageCode == 'ar' ? 'الكل' : 'All', icon: Icons.grid_view_rounded, selected: _selectedFilterKey == null, color: const Color(0xFF5C6BC0), onTap: () => setState(() => _selectedFilterKey = null), isDark: isDark),
-          const SizedBox(width: 8),
-          ...categories.values.map((cat) {
-            return Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: _FilterChip(label: cat.name, icon: cat.style.icon, selected: _selectedFilterKey == cat.name, color: cat.style.cardColor, onTap: () => setState(() => _selectedFilterKey = cat.name), isDark: isDark),
-            );
-          }),
+          for (var i = 0; i < chips.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            chips[i],
+          ],
         ],
       ),
     );
@@ -429,7 +484,7 @@ class _MyBillsPageState extends State<MyBillsPage> {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  loc.locale.languageCode == 'ar' ? 'التنبيهات' : 'Notifications',
+                  loc.notificationsTitle,
                   style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 18),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -456,9 +511,9 @@ class _MyBillsPageState extends State<MyBillsPage> {
                     const SizedBox(height: 20),
                     Icon(Icons.mark_email_read_outlined, size: 60, color: isDark ? Colors.white10 : Colors.black.withOpacity(0.05)),
                     const SizedBox(height: 16),
-                    Text(loc.locale.languageCode == 'ar' ? 'أنت على اطلاع بكل شيء!' : 'You are all caught up!', style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold)),
+                    Text(loc.allCaughtUp, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
-                    Text(loc.locale.languageCode == 'ar' ? 'لا توجد تنبيهات جديدة في الوقت الحالي.' : 'No new notifications at this time.', textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.white38 : Colors.grey[500], fontSize: 13)),
+                    Text(loc.noNewNotifications, textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.white38 : Colors.grey[500], fontSize: 13)),
                     const SizedBox(height: 30),
                   ],
                 );
@@ -492,7 +547,7 @@ class _MyBillsPageState extends State<MyBillsPage> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.locale.languageCode == 'ar' ? 'إغلاق' : 'Close', style: const TextStyle(color: Colors.blue))),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text(loc.close, style: const TextStyle(color: Colors.blue))),
         ],
       ),
     );
@@ -508,11 +563,10 @@ class _MyBillsPageState extends State<MyBillsPage> {
 
   String _formatTime(DateTime dt, AppLocalizations loc) {
     final diff = DateTime.now().difference(dt);
-    final isAr = loc.locale.languageCode == 'ar';
-    if (diff.inMinutes < 1) return isAr ? 'الآن' : 'Just now';
-    if (diff.inMinutes < 60) return isAr ? 'قبل ${diff.inMinutes} دقيقة' : '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return isAr ? 'قبل ${diff.inHours} ساعة' : '${diff.inHours}h ago';
-    return isAr ? 'قبل ${diff.inDays} يوم' : '${diff.inDays}d ago';
+    if (diff.inMinutes < 1) return loc.justNow;
+    if (diff.inMinutes < 60) return loc.minutesAgo(diff.inMinutes);
+    if (diff.inHours < 24) return loc.hoursAgo(diff.inHours);
+    return loc.daysAgo(diff.inDays);
   }
 
   Future<void> _confirmDelete(String id) async {
@@ -522,11 +576,11 @@ class _MyBillsPageState extends State<MyBillsPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: isDark ? const Color(0xFF1A1F26) : Colors.white,
-        title: Text(loc.locale.languageCode == 'ar' ? 'حذف الفاتورة' : 'Delete Bill', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
-        content: Text(loc.locale.languageCode == 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?', style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
+        title: Text(loc.deleteBillTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+        content: Text(loc.deleteBillConfirm, style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: Text(loc.cancel)),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(loc.locale.languageCode == 'ar' ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.redAccent))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(loc.delete, style: const TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
@@ -540,11 +594,11 @@ class _MyBillsPageState extends State<MyBillsPage> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: isDark ? const Color(0xFF1A1F26) : Colors.white,
-        title: Text(loc.locale.languageCode == 'ar' ? 'حذف الفواتير' : 'Delete Bills', style: TextStyle(color: isDark ? Colors.white : Colors.black)),
-        content: Text('${loc.locale.languageCode == 'ar' ? 'حذف' : 'Delete'} ${_selectedIds.length} ${loc.locale.languageCode == 'ar' ? 'فاتورة؟' : 'bills?'}', style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
+        title: Text(loc.deleteBillsTitle, style: TextStyle(color: isDark ? Colors.white : Colors.black)),
+        content: Text(loc.deleteBillsConfirm(_selectedIds.length), style: TextStyle(color: isDark ? Colors.white70 : Colors.black87)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: Text(loc.cancel)),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(loc.locale.languageCode == 'ar' ? 'حذف' : 'Delete', style: const TextStyle(color: Colors.redAccent))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: Text(loc.delete, style: const TextStyle(color: Colors.redAccent))),
         ],
       ),
     );
@@ -577,10 +631,17 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cardBg = isDark ? const Color(0xFF14181F) : Colors.white;
+    final isWide = MediaQuery.sizeOf(context).width >= 600;
+    final titleSize = isWide ? 12.0 : 10.0;
+    final amountSize = isWide ? 16.0 : 14.0;
+    final usageSize = isWide ? 11.0 : 10.0;
+
     return Container(
-      width: 150,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isWide ? 14 : 12,
+        vertical: isWide ? 12 : 10,
+      ),
       decoration: BoxDecoration(
         color: cardBg,
         borderRadius: BorderRadius.circular(16),
@@ -594,7 +655,17 @@ class _SummaryCard extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 16),
               const SizedBox(width: 6),
-              Expanded(child: Text(title, style: TextStyle(color: isDark ? Colors.white60 : Colors.grey[600], fontSize: 10), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: isDark ? Colors.white60 : Colors.grey[600],
+                    fontSize: titleSize,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               if (tip != null)
                 GestureDetector(
                   onTap: onTipTap,
@@ -619,9 +690,27 @@ class _SummaryCard extends StatelessWidget {
                 ),
             ],
           ),
-          const Spacer(),
-          FittedBox(fit: BoxFit.scaleDown, child: Text('${amount.toStringAsFixed(3)} OMR', style: TextStyle(color: isDark ? Colors.white : const Color(0xFF1A1F26), fontWeight: FontWeight.bold, fontSize: 14))),
-          if (unit.isNotEmpty) Text('${usage.toStringAsFixed(0)} $unit', style: TextStyle(color: isDark ? Colors.white38 : Colors.grey[500], fontSize: 10)),
+          SizedBox(height: isWide ? 10 : 8),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              '${amount.toStringAsFixed(3)} OMR',
+              style: TextStyle(
+                color: isDark ? Colors.white : const Color(0xFF1A1F26),
+                fontWeight: FontWeight.bold,
+                fontSize: amountSize,
+              ),
+            ),
+          ),
+          if (unit.isNotEmpty)
+            Text(
+              '${usage.toStringAsFixed(0)} $unit',
+              style: TextStyle(
+                color: isDark ? Colors.white38 : Colors.grey[500],
+                fontSize: usageSize,
+              ),
+            ),
         ],
       ),
     );
@@ -635,23 +724,78 @@ class _FilterChip extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
   final bool isDark;
+  final bool expanded;
+  final bool isWide;
 
-  const _FilterChip({required this.label, required this.icon, required this.selected, required this.color, required this.onTap, required this.isDark});
+  const _FilterChip({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+    required this.isDark,
+    this.expanded = false,
+    this.isWide = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final chipBg = selected ? color : (isDark ? const Color(0xFF14181F) : Colors.white);
+    final iconSize = isWide ? 20.0 : 16.0;
+    final fontSize = isWide ? 14.0 : 12.0;
+    final vPad = isWide ? 14.0 : 10.0;
+    final hPad = isWide ? 16.0 : 12.0;
+
+    final content = Row(
+      mainAxisAlignment:
+          expanded ? MainAxisAlignment.center : MainAxisAlignment.start,
+      mainAxisSize: expanded ? MainAxisSize.max : MainAxisSize.min,
+      children: [
+        Icon(icon, color: selected ? Colors.white : color, size: iconSize),
+        SizedBox(width: isWide ? 8 : 6),
+        Flexible(
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: selected
+                  ? Colors.white
+                  : (isDark ? Colors.white60 : Colors.grey[700]),
+              fontWeight: FontWeight.w600,
+              fontSize: fontSize,
+            ),
+          ),
+        ),
+      ],
+    );
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        width: expanded ? double.infinity : null,
+        padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
         decoration: BoxDecoration(
           color: chipBg,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? Colors.transparent : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05))),
-          boxShadow: selected || isDark ? [] : [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5, offset: const Offset(0, 2))],
+          borderRadius: BorderRadius.circular(isWide ? 14 : 12),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : (isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.05)),
+          ),
+          boxShadow: selected || isDark
+              ? []
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
         ),
-        child: Row(children: [Icon(icon, color: selected ? Colors.white : color, size: 16), const SizedBox(width: 6), Text(label, style: TextStyle(color: selected ? Colors.white : (isDark ? Colors.white60 : Colors.grey[700]), fontWeight: FontWeight.w600, fontSize: 12))]),
+        child: content,
       ),
     );
   }
@@ -701,10 +845,8 @@ class _BillCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      loc.locale.languageCode == 'ar' 
-                        ? (bill.type == 'Electricity' ? 'الكهرباء' : (bill.type == 'Water' ? 'المياه' : bill.type))
-                        : bill.type, 
-                      style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 14)
+                      loc.localizedBillTypeName(bill.type),
+                      style: TextStyle(color: textColor, fontWeight: FontWeight.bold, fontSize: 14),
                     ),
                     Text(bill.dateText, style: TextStyle(color: isDark ? Colors.white38 : Colors.grey[500], fontSize: 11)),
                     if (usageDiff != null) ...[const SizedBox(height: 6), _buildUsageBadge(loc, usageDiff!)],
@@ -744,12 +886,9 @@ class _BillCard extends StatelessWidget {
   }
 
   Widget _buildUsageBadge(AppLocalizations loc, double diff) {
-    final isAr = loc.locale.languageCode == 'ar';
     final isLess = diff <= 0;
     final color = isLess ? const Color(0xFF4CAF50) : const Color(0xFFFFB300);
-    final text = isAr 
-      ? '${diff.abs().toStringAsFixed(0)}% ${isLess ? 'أقل' : 'أكثر'}'
-      : '${diff.abs().toStringAsFixed(0)}% ${isLess ? 'less' : 'more'}';
+    final text = loc.usageDiffLabel(diff.abs().toStringAsFixed(0), isLess);
     
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), 
@@ -766,6 +905,6 @@ class _BillCard extends StatelessWidget {
   }
 
   Widget _buildAnalyzeButton(AppLocalizations loc, bool isDark) {
-    return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: isDark ? const Color(0xFF1A1F26) : Colors.grey[50], borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.blue.withOpacity(0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.analytics_outlined, color: Colors.blue, size: 12), const SizedBox(width: 4), Text(loc.locale.languageCode == 'ar' ? 'تحليل' : 'Analyze', style: const TextStyle(color: Colors.blue, fontSize: 9, fontWeight: FontWeight.bold))]));
+    return Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4), decoration: BoxDecoration(color: isDark ? const Color(0xFF1A1F26) : Colors.grey[50], borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.blue.withOpacity(0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [const Icon(Icons.analytics_outlined, color: Colors.blue, size: 12), const SizedBox(width: 4), Text(loc.analysis, style: const TextStyle(color: Colors.blue, fontSize: 9, fontWeight: FontWeight.bold))]));
   }
 }

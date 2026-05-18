@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
@@ -74,7 +76,7 @@ class AuthGate extends StatelessWidget {
   }
 }
 
-class _SignedInRouter extends StatelessWidget {
+class _SignedInRouter extends StatefulWidget {
   final String uid;
   final Function(Locale) onLanguageChanged;
   final Locale currentLocale;
@@ -87,34 +89,110 @@ class _SignedInRouter extends StatelessWidget {
   });
 
   @override
+  State<_SignedInRouter> createState() => _SignedInRouterState();
+}
+
+class _SignedInRouterState extends State<_SignedInRouter> {
+  bool _profileTimedOut = false;
+  int _retryToken = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 12), () {
+      if (mounted) setState(() => _profileTimedOut = true);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _SignedInRouter oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.uid != widget.uid) {
+      _profileTimedOut = false;
+      _retryToken++;
+      Future.delayed(const Duration(seconds: 12), () {
+        if (mounted) setState(() => _profileTimedOut = true);
+      });
+    }
+  }
+
+  Widget _connectionIssue(AppLocalizations loc) {
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.cloud_off, size: 48, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                loc.profileLoadFailed,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () {
+                  setState(() {
+                    _profileTimedOut = false;
+                    _retryToken++;
+                  });
+                  Future.delayed(const Duration(seconds: 12), () {
+                    if (mounted) setState(() => _profileTimedOut = true);
+                  });
+                },
+                child: Text(loc.retry),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
+
     return StreamBuilder<DatabaseEvent>(
-      key: ValueKey<String>(uid),
-      stream: FirebaseDatabase.instance.ref('users/$uid').onValue,
+      key: ValueKey<String>('${widget.uid}_$_retryToken'),
+      stream: FirebaseDatabase.instance
+          .ref('users/${widget.uid}')
+          .onValue
+          .timeout(
+            const Duration(seconds: 15),
+            onTimeout: (EventSink<DatabaseEvent> sink) {
+              sink.close();
+            },
+          ),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           AppErrorReporter.debug(
-            'AuthGate users/$uid stream',
+            'AuthGate users/${widget.uid} stream',
             snapshot.error,
             snapshot.stackTrace,
           );
-          return const Scaffold(body: IosStyleLoading());
+          return _connectionIssue(loc);
         }
         if (!snapshot.hasData) {
+          if (_profileTimedOut) {
+            return _connectionIssue(loc);
+          }
           return const Scaffold(body: IosStyleLoading());
         }
+        _profileTimedOut = false;
         final snap = snapshot.data!.snapshot;
         if (!snap.exists) {
           return _MissingProfileGate(
-            onLanguageChanged: onLanguageChanged,
-            currentLocale: currentLocale,
+            onLanguageChanged: widget.onLanguageChanged,
+            currentLocale: widget.currentLocale,
           );
         }
         final raw = snap.value;
         if (raw is! Map) {
           return _MissingProfileGate(
-            onLanguageChanged: onLanguageChanged,
-            currentLocale: currentLocale,
+            onLanguageChanged: widget.onLanguageChanged,
+            currentLocale: widget.currentLocale,
           );
         }
         final data = Map<dynamic, dynamic>.from(raw);
@@ -123,8 +201,8 @@ class _SignedInRouter extends StatelessWidget {
 
         if (isBlocked) {
           return _BlockedAccountGate(
-            onLanguageChanged: onLanguageChanged,
-            currentLocale: currentLocale,
+            onLanguageChanged: widget.onLanguageChanged,
+            currentLocale: widget.currentLocale,
           );
         }
 
@@ -132,17 +210,17 @@ class _SignedInRouter extends StatelessWidget {
 
         if (isAdmin) {
           return AdminHome(
-            key: ValueKey<String>('admin_$uid'),
-            onLanguageChanged: onLanguageChanged,
-            currentLocale: currentLocale,
+            key: ValueKey<String>('admin_${widget.uid}'),
+            onLanguageChanged: widget.onLanguageChanged,
+            currentLocale: widget.currentLocale,
           );
         }
         return UserNavBar(
           key: UserNavBar.navKey,
-          uid: uid,
+          uid: widget.uid,
           fullName: fullName,
-          onLanguageChanged: onLanguageChanged,
-          currentLocale: currentLocale,
+          onLanguageChanged: widget.onLanguageChanged,
+          currentLocale: widget.currentLocale,
         );
       },
     );

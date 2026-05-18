@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import '../data/bill_store.dart';
 import '../services/multi_account_service.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
@@ -43,6 +44,7 @@ class _UserNavBarState extends State<UserNavBar> {
   void initState() {
     super.initState();
     _fullName = widget.fullName;
+    BillStore.instance.ensureListening();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       MultiAccountService.syncCredentialIfRememberedMatches();
     });
@@ -63,6 +65,8 @@ class _UserNavBarState extends State<UserNavBar> {
       _currentIndex = 0;
       _blockedDialogShown = false;
       _fullName = widget.fullName;
+      BillStore.instance.resetForUserSwitch();
+      BillStore.instance.ensureListening();
     }
   }
 

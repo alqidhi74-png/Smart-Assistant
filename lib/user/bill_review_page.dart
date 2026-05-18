@@ -332,18 +332,24 @@ class _BillReviewPageState extends State<BillReviewPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final background = Theme.of(context).scaffoldBackgroundColor;
+    final textColor = isDark ? Colors.white : AppColors.textDark;
     final subtextColor = isDark ? Colors.white70 : AppColors.textSecondary;
     final hintColor = isDark ? Colors.grey[500] : Colors.grey[600];
 
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: background,
       appBar: AppBar(
-        title: Text(_loc.billReviewTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
-        backgroundColor: const Color(0xFF121212),
+        title: Text(
+          _loc.billReviewTitle,
+          style: TextStyle(color: textColor, fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: background,
+        foregroundColor: textColor,
         elevation: 0,
         centerTitle: true,
         leading: BackButton(
-          color: Colors.white,
+          color: textColor,
           onPressed: _saving ? null : () => Navigator.of(context).pop(),
         ),
       ),
@@ -365,53 +371,74 @@ class _BillReviewPageState extends State<BillReviewPage> {
                     style: TextStyle(color: hintColor, fontSize: 12),
                   ),
                   const SizedBox(height: 24),
-                  _buildToggle(),
+                  _buildToggle(isDark: isDark),
                   const SizedBox(height: 24),
-                  _buildField(_loc.invoiceDate, _dateController, icon: Icons.calendar_today_outlined, onTap: _pickInvoiceDate),
-                  _buildField(_loc.totalAmount, _totalController, suffix: 'OMR', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
-                  _buildField(_loc.consumption, _consumptionController, suffix: _isWater ? 'm³' : 'kWh', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
-                  _buildField(_loc.invoiceNumberTitle, _invoiceController, keyboardType: TextInputType.text),
-                  _buildField(_loc.accountNumber, _accountController, keyboardType: TextInputType.number),
-                  _buildField(_loc.billingMonthTitle, _billingMonthTextController, icon: Icons.calendar_month_outlined, onTap: _pickBillingMonth),
+                  _buildField(_loc.invoiceDate, _dateController, isDark: isDark, icon: Icons.calendar_today_outlined, onTap: _pickInvoiceDate),
+                  _buildField(_loc.totalAmount, _totalController, isDark: isDark, suffix: 'OMR', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                  _buildField(_loc.consumption, _consumptionController, isDark: isDark, suffix: _isWater ? 'm³' : 'kWh', keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+                  _buildField(_loc.invoiceNumberTitle, _invoiceController, isDark: isDark, keyboardType: TextInputType.text),
+                  _buildField(_loc.accountNumber, _accountController, isDark: isDark, keyboardType: TextInputType.number),
+                  _buildField(_loc.billingMonthTitle, _billingMonthTextController, isDark: isDark, icon: Icons.calendar_month_outlined, onTap: _pickBillingMonth),
                 ],
               ),
             ),
           ),
-          _buildBottomActions(),
+          _buildBottomActions(isDark: isDark, background: background),
         ],
       ),
     );
   }
 
-  Widget _buildToggle() {
+  Widget _buildToggle({required bool isDark}) {
+    final cardColor =
+        isDark ? const Color(0xFF1E1E1E) : AppColors.backgroundWhite;
+    final borderColor =
+        isDark ? const Color(0xFF2C2C2C) : AppColors.borderLight;
+
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E1E),
+        color: cardColor,
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: borderColor),
       ),
       child: Row(
         children: [
           Expanded(
-            child: _toggleItem(_loc.billTypeElectricity, !_isWater, () => _onBillTypeChanged(false)),
+            child: _toggleItem(
+              _loc.billTypeElectricity,
+              !_isWater,
+              isDark,
+              () => _onBillTypeChanged(false),
+            ),
           ),
           Expanded(
-            child: _toggleItem(_loc.billTypeWater, _isWater, () => _onBillTypeChanged(true)),
+            child: _toggleItem(
+              _loc.billTypeWater,
+              _isWater,
+              isDark,
+              () => _onBillTypeChanged(true),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _toggleItem(String label, bool active, VoidCallback onTap) {
-    final cyan = const Color(0xFF00E5FF);
+  Widget _toggleItem(
+    String label,
+    bool active,
+    bool isDark,
+    VoidCallback onTap,
+  ) {
+    final inactiveText =
+        isDark ? Colors.white70 : AppColors.textSecondary;
     return GestureDetector(
       onTap: active ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         decoration: BoxDecoration(
-          color: active ? cyan : Colors.transparent,
+          color: active ? AppColors.primary : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),
         alignment: Alignment.center,
@@ -419,13 +446,13 @@ class _BillReviewPageState extends State<BillReviewPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (active) ...[
-              const Icon(Icons.check, color: Color(0xFF121212), size: 16),
+              const Icon(Icons.check, color: Colors.white, size: 16),
               const SizedBox(width: 8),
             ],
             Text(
               label,
               style: TextStyle(
-                color: active ? const Color(0xFF121212) : Colors.white70,
+                color: active ? Colors.white : inactiveText,
                 fontWeight: FontWeight.bold,
               ),
             ),
@@ -435,45 +462,70 @@ class _BillReviewPageState extends State<BillReviewPage> {
     );
   }
 
-  Widget _buildField(String label, TextEditingController controller, {String? suffix, IconData? icon, VoidCallback? onTap, TextInputType? keyboardType}) {
+  Widget _buildField(
+    String label,
+    TextEditingController controller, {
+    required bool isDark,
+    String? suffix,
+    IconData? icon,
+    VoidCallback? onTap,
+    TextInputType? keyboardType,
+  }) {
+    final textColor = isDark ? Colors.white : AppColors.textDark;
+    final labelColor = isDark ? Colors.white54 : AppColors.textSecondary;
+    final fillColor =
+        isDark ? const Color(0xFF1E1E1E) : AppColors.backgroundWhite;
+    final borderColor =
+        isDark ? const Color(0xFF2C2C2C) : AppColors.borderLight;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
-        readOnly: true, // Always read-only as requested
+        readOnly: true,
         onTap: onTap,
         keyboardType: keyboardType,
         textInputAction: TextInputAction.next,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        style: TextStyle(color: textColor, fontSize: 16),
         decoration: InputDecoration(
           labelText: label,
-          labelStyle: const TextStyle(color: Colors.white54, fontSize: 14),
+          labelStyle: TextStyle(color: labelColor, fontSize: 14),
           floatingLabelBehavior: FloatingLabelBehavior.always,
           suffixText: suffix,
-          suffixStyle: const TextStyle(color: Colors.white38),
-          suffixIcon: icon != null ? Icon(icon, color: Colors.blue[400], size: 20) : null,
+          suffixStyle: TextStyle(color: labelColor),
+          suffixIcon:
+              icon != null
+                  ? Icon(icon, color: AppColors.primary, size: 20)
+                  : null,
           filled: true,
-          fillColor: const Color(0xFF1E1E1E),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          fillColor: fillColor,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.white10),
+            borderSide: BorderSide(color: borderColor),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.blue[400]!, width: 1.5),
+            borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildBottomActions() {
+  Widget _buildBottomActions({
+    required bool isDark,
+    required Color background,
+  }) {
+    final cardColor =
+        isDark ? const Color(0xFF1E1E1E) : AppColors.backgroundWhite;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
-      decoration: const BoxDecoration(
-        color: Color(0xFF121212),
-      ),
+      decoration: BoxDecoration(color: background),
       child: Row(
         children: [
           Expanded(
@@ -481,10 +533,18 @@ class _BillReviewPageState extends State<BillReviewPage> {
               onPressed: () => Navigator.pop(context),
               style: TextButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: const Color(0xFF1E1E1E),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                backgroundColor: cardColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: Text(_loc.cancel, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
+              child: Text(
+                _loc.cancel,
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 16),
@@ -494,12 +554,29 @@ class _BillReviewPageState extends State<BillReviewPage> {
               onPressed: _saving ? null : _save,
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.blue[700],
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                backgroundColor: AppColors.primary,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
-              child: _saving
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                  : Text(_loc.save, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+              child:
+                  _saving
+                      ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                      : Text(
+                        _loc.save,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
             ),
           ),
         ],

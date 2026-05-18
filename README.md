@@ -17,20 +17,5 @@ Each developer keeps their own key locally:
    **Android Studio Setup**: Run → Edit Configurations → **Additional run args**: `--dart-define-from-file=dart_defines.json`
 
 ---
-**تنبيه لزميلك (Instructions for your colleague):**
-عند تحميل المشروع من GitHub، لن يعمل الـ API مباشرة لأن ملف المفاتيح مخفي للحماية.
-يجب عليك إنشاء ملف `dart_defines.json` ووضع مفتاح الـ API الخاص بك فيه كما هو موضح أعلاه.
 
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+**Note:** After cloning from GitHub, create a local `dart_defines.json` and add your OpenRouter key as described above.

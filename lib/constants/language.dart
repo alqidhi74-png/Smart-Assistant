@@ -887,7 +887,7 @@ Account data and passwords are protected and processed securely. You may request
       locale.languageCode == 'ar' ? 'بحث في الفواتير' : 'Search bills';
 
   String get sortAndFilter =>
-      locale.languageCode == 'ar' ? 'ترتيب وتصفية' : 'Sort & Filter';
+      locale.languageCode == 'ar' ? 'الترتيب والتصفية' : 'Sort & Filter';
   String get sortByDateNewest =>
       locale.languageCode == 'ar' ? 'التاريخ (الأحدث)' : 'Date (Newest)';
   String get sortByDateOldest =>
@@ -1130,6 +1130,169 @@ Account data and passwords are protected and processed securely. You may request
       locale.languageCode == 'ar'
           ? 'بناءً على تاريخك، من المتوقع أن تكون فاتورة $type القادمة حوالي ${amount.toStringAsFixed(3)} ريال.'
           : 'Based on your history, your next $type bill is expected to be around ${amount.toStringAsFixed(3)} OMR.';
+
+  String selectedBillsCount(int count) => locale.languageCode == 'ar'
+      ? 'تم اختيار $count'
+      : '$count Selected';
+
+  String get searchBillsPlaceholder => locale.languageCode == 'ar'
+      ? 'البحث في الفواتير...'
+      : 'Search bills...';
+
+  String get billAnalysisTitle =>
+      locale.languageCode == 'ar' ? 'تحليل الفاتورة' : 'Bill Analysis';
+
+  String get aiInterpretation => locale.languageCode == 'ar'
+      ? 'تفسير الذكاء الاصطناعي'
+      : 'AI Interpretation';
+
+  String get apiKeyMissing => locale.languageCode == 'ar'
+      ? 'مفتاح API غير موجود'
+      : 'API Key is missing';
+
+  String get aiAnalysisUnavailable => locale.languageCode == 'ar'
+      ? 'عذراً، تعذر الحصول على تحليل حالياً.'
+      : 'Sorry, could not fetch analysis at this time.';
+
+  String get discussAnalysisInChat => locale.languageCode == 'ar'
+      ? 'ناقش التحليل في الشات'
+      : 'Discuss in Chat';
+
+  String billDiscussPrompt(String billDescription) => locale.languageCode == 'ar'
+      ? 'هل يمكنك شرح تفاصيل هذه الفاتورة لي؟ ($billDescription). لماذا قد تكون مرتفعة وما هي نصائحك؟'
+      : 'Can you explain the details of this bill to me? ($billDescription). Why might it be high and what are your tips?';
+
+  String billDescriptionForChat(String month, String amount) =>
+      locale.languageCode == 'ar'
+          ? 'فاتورة $month بقيمة $amount'
+          : '$month bill of $amount';
+
+  String get profileLoadFailed => locale.languageCode == 'ar'
+      ? 'تعذر تحميل بيانات الحساب. تحقق من الاتصال بالإنترنت.'
+      : 'Could not load your profile. Check your internet connection.';
+
+  String get retry =>
+      locale.languageCode == 'ar' ? 'إعادة المحاولة' : 'Retry';
+
+  String get gotIt => locale.languageCode == 'ar' ? 'فهمت' : 'Got it';
+
+  String get notificationsTitle =>
+      locale.languageCode == 'ar' ? 'التنبيهات' : 'Notifications';
+
+  String get allCaughtUp => locale.languageCode == 'ar'
+      ? 'أنت على اطلاع بكل شيء!'
+      : 'You are all caught up!';
+
+  String get noNewNotifications => locale.languageCode == 'ar'
+      ? 'لا توجد تنبيهات جديدة في الوقت الحالي.'
+      : 'No new notifications at this time.';
+
+  String get deleteBillTitle =>
+      locale.languageCode == 'ar' ? 'حذف الفاتورة' : 'Delete Bill';
+
+  String get deleteBillConfirm =>
+      locale.languageCode == 'ar' ? 'هل أنت متأكد؟' : 'Are you sure?';
+
+  String get deleteBillsTitle =>
+      locale.languageCode == 'ar' ? 'حذف الفواتير' : 'Delete Bills';
+
+  String deleteBillsConfirm(int count) => locale.languageCode == 'ar'
+      ? 'حذف $count فاتورة؟'
+      : 'Delete $count bills?';
+
+  String get justNow => locale.languageCode == 'ar' ? 'الآن' : 'Just now';
+
+  String minutesAgo(int n) =>
+      locale.languageCode == 'ar' ? 'قبل $n دقيقة' : '${n}m ago';
+
+  String hoursAgo(int n) =>
+      locale.languageCode == 'ar' ? 'قبل $n ساعة' : '${n}h ago';
+
+  String daysAgo(int n) =>
+      locale.languageCode == 'ar' ? 'قبل $n يوم' : '${n}d ago';
+
+  String usageDiffLabel(String pct, bool isLess) => locale.languageCode == 'ar'
+      ? '$pct ${isLess ? 'أقل' : 'أكثر'}'
+      : '$pct ${isLess ? 'less' : 'more'}';
+
+  String get tipUsageVeryHigh =>
+      locale.languageCode == 'ar' ? 'كبيرة جداً' : 'significantly';
+
+  String categoryTipElectricitySummer(String valStr) => locale.languageCode == 'ar'
+      ? 'نظراً لارتفاع درجات الحرارة، هناك زيادة ملحوظة في الاستهلاك. السبب المرجح هو أجهزة التكييف؛ نوصي بتنظيف الفلاتر وضبط الحرارة على 24 درجة.'
+      : 'Due to summer heat, usage is up $valStr. Likely cause: ACs; try cleaning filters and setting temp to 24°C.';
+
+  String categoryTipElectricityGeneral(String valStr) =>
+      locale.languageCode == 'ar'
+          ? 'لاحظنا ارتفاعاً في فاتورة الكهرباء. في هذا الموسم، غالباً ما تكون سخانات المياه هي المسبب الرئيسي لزيادة الاستهلاك.'
+          : 'Electricity is up $valStr. During this season, water heaters or heating appliances are often the main cause.';
+
+  String categoryTipWater(String valStr) => locale.languageCode == 'ar'
+      ? 'فاتورة المياه مرتفعة بشكل غير معتاد. ننصح بفحص الأنابيب الخارجية أو نظام الري، حيث تعد التسريبات الخفية السبب الأكثر شيوعاً للزيادة.'
+      : 'Water usage increased by $valStr. We suggest checking external pipes or irrigation; hidden leaks are the most common cause.';
+
+  String categoryTipGeneric(String type, String valStr) =>
+      locale.languageCode == 'ar'
+          ? 'فاتورة $type مرتفعة هذا الشهر. نوصي بمراجعة نمط الاستخدام لتحديد الأجهزة التي تستهلك طاقة أكبر.'
+          : '$type bills rose by $valStr. Reviewing your usage patterns this month can help identify the appliance causing the spike.';
+
+  String topActiveCategoryInsight(
+    String name,
+    String valueText,
+    String unit,
+    String trendText,
+  ) =>
+      locale.languageCode == 'ar'
+          ? 'الأكثر نشاطًا: $name ($valueText${unit.isEmpty ? '' : ' $unit'}, اتجاه $trendText)'
+          : 'Top active category: $name ($valueText${unit.isEmpty ? '' : ' $unit'}, trend $trendText)';
+
+  String linkedCategoriesCount(int count) => locale.languageCode == 'ar'
+      ? 'عدد التصنيفات المرتبطة: $count'
+      : 'Linked categories count: $count';
+
+  String get topActivity =>
+      locale.languageCode == 'ar' ? 'الأكثر نشاطًا' : 'Top activity';
+
+  String get topGrowth =>
+      locale.languageCode == 'ar' ? 'الأعلى نموًا' : 'Top growth';
+
+  String latestReadingLabel(String value) => locale.languageCode == 'ar'
+      ? 'آخر قراءة: $value'
+      : 'Latest: $value';
+
+  String get chatbotServiceUnavailable => locale.languageCode == 'ar'
+      ? 'خدمة الذكاء الاصطناعي غير متوفرة حالياً. يرجى المحاولة لاحقاً.'
+      : 'AI service is currently unavailable. Please try again later.';
+
+  String get chatbotApiConfigError => locale.languageCode == 'ar'
+      ? 'خطأ في إعدادات الخدمة: يرجى التحقق من مفتاح الـ API.'
+      : 'Service configuration error: please check the API key.';
+
+  String aiBillAnalysisSystemPrompt() => locale.languageCode == 'ar'
+      ? 'أنت مساعد ذكي خبير في تحليل فواتير الكهرباء والمياه في سلطنة عمان. قدم ملخصاً ذكياً ومختصراً جداً (3 أسطر كحد أقصى) باللغة العربية. إذا كان المبلغ والاستهلاك منخفضاً (ممتاز)، شجع المستخدم بذكاء على الاستمرار. أما إذا كان مرتفعاً بشكل غير معتاد، فقدم نصيحة واحدة سريعة عن السبب المرجح.'
+      : 'You are an AI expert in analyzing utility bills in Oman. Provide a very concise smart summary (max 3 lines). If the amount and usage are low (excellent), encourage the user to keep it up. Only if it is unusually high, provide one quick tip about the likely cause.';
+
+  String aiBillAnalysisUserPrompt({
+    required String type,
+    required Object? totalAmount,
+    required Object? consumptionValue,
+    required String? consumptionUnit,
+    required String dateText,
+  }) =>
+      locale.languageCode == 'ar'
+          ? 'الفئة: $type، المبلغ: $totalAmount ريال، الاستهلاك: $consumptionValue $consumptionUnit، التاريخ: $dateText.'
+          : 'Type: $type, Amount: $totalAmount OMR, Usage: $consumptionValue $consumptionUnit, Date: $dateText.';
+
+  String localizedBillTypeName(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('electric') || type.contains('كهرب')) {
+      return billTypeElectricityLabel;
+    }
+    if (t.contains('water') || type.contains('مياه') || type.contains('ماء')) {
+      return billTypeWaterLabel;
+    }
+    return type;
+  }
 }
 
 class _AppLocalizationsDelegate

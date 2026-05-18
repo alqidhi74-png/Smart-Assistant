@@ -51,5 +51,11 @@
 	<string>Allow access to photos to upload bill images.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Allow saving bill photos to your library.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>sms</string>
+		<string>mailto</string>
+	</array>
 </dict>
 </plist>

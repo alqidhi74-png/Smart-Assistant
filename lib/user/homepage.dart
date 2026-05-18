@@ -13,9 +13,9 @@ import '../utils/bill_list_query.dart';
 import '../utils/bill_type_utils.dart';
 import '../utils/consumption_series.dart';
 import '../utils/smart_analytics_insights.dart';
+import '../utils/loading_overlay.dart';
 import '../utils/category_rtdb_style.dart';
 import '../services/categories_rtdb_hub.dart';
-import '../utils/loading_overlay.dart';
 import 'feedback_page.dart';
 import 'help.dart';
 import 'upload_bill.dart';
@@ -221,7 +221,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     if (bestCategory == null || bestLastValue == null) return null;
-    final isArabic = locale.languageCode == 'ar';
+    final loc = AppLocalizations(locale);
     final key = BillTypeUtils.canonicalTypeKey(bestCategory.name);
     final unit = key == 'water' ? 'm³' : key == 'electricity' ? 'kWh' : '';
     final ratioPct = ((bestRatio ?? 1) - 1) * 100;
@@ -230,10 +230,12 @@ class _HomePageState extends State<HomePage> {
             ? '+${ratioPct.toStringAsFixed(1)}%'
             : '${ratioPct.toStringAsFixed(1)}%';
     final valueText = bestLastValue.toStringAsFixed(bestLastValue % 1 == 0 ? 0 : 1);
-    if (isArabic) {
-      return 'الأكثر نشاطًا: ${bestCategory.name} ($valueText${unit.isEmpty ? '' : ' $unit'}, اتجاه $trendText)';
-    }
-    return 'Top active category: ${bestCategory.name} ($valueText${unit.isEmpty ? '' : ' $unit'}, trend $trendText)';
+    return loc.topActiveCategoryInsight(
+      loc.localizedBillTypeName(bestCategory.name),
+      valueText,
+      unit,
+      trendText,
+    );
   }
 
   double? _avgBeforeLast(List<double> values) {
@@ -318,6 +320,39 @@ class _HomePageState extends State<HomePage> {
                                         return LayoutBuilder(
                                           builder: (context, constraints) {
                                             final maxWidth = constraints.maxWidth;
+                                            final isWide = maxWidth >= 600;
+                                            final tiles = items
+                                                .map(
+                                                  (item) => _StatTile(
+                                                    title: _localizedCategoryName(
+                                                      localizations,
+                                                      item.name,
+                                                    ),
+                                                    value: item.count.toString(),
+                                                    backgroundColor: item.color,
+                                                    icon: item.icon,
+                                                  ),
+                                                )
+                                                .toList();
+
+                                            if (items.length <= 3) {
+                                              final statHeight = isWide
+                                                  ? 148.0
+                                                  : (maxWidth * 0.31)
+                                                      .clamp(124.0, 140.0);
+                                              return SizedBox(
+                                                height: statHeight,
+                                                child: Row(
+                                                  children: [
+                                                    for (var i = 0; i < tiles.length; i++) ...[
+                                                      if (i > 0) const SizedBox(width: 12),
+                                                      Expanded(child: tiles[i]),
+                                                    ],
+                                                  ],
+                                                ),
+                                              );
+                                            }
+
                                             final columns = (maxWidth / 128)
                                                 .floor()
                                                 .clamp(2, 4);
@@ -329,23 +364,7 @@ class _HomePageState extends State<HomePage> {
                                               crossAxisSpacing: 12,
                                               mainAxisSpacing: 12,
                                               childAspectRatio: 1.28,
-                                              children:
-                                                  items
-                                                      .map(
-                                                        (item) => _StatTile(
-                                                          title: _localizedCategoryName(
-                                                            localizations,
-                                                            item.name,
-                                                          ),
-                                                          value:
-                                                              item.count
-                                                                  .toString(),
-                                                          backgroundColor:
-                                                              item.color,
-                                                          icon: item.icon,
-                                                        ),
-                                                      )
-                                                      .toList(),
+                                              children: tiles,
                                             );
                                           },
                                         );
@@ -368,33 +387,54 @@ class _HomePageState extends State<HomePage> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    SegmentedButton<int>(
-                                      segments: [
-                                        ButtonSegment<int>(
-                                          value: 3,
-                                          label: Text(
-                                            localizations.chartMonthsShort3,
+                                    LayoutBuilder(
+                                      builder: (context, constraints) {
+                                        final isWide =
+                                            constraints.maxWidth >= 600;
+                                        return SizedBox(
+                                          width: double.infinity,
+                                          child: SegmentedButton<int>(
+                                            style: SegmentedButton.styleFrom(
+                                              padding: EdgeInsets.symmetric(
+                                                vertical: isWide ? 12 : 8,
+                                              ),
+                                              textStyle: TextStyle(
+                                                fontSize: isWide ? 14 : 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            segments: [
+                                              ButtonSegment<int>(
+                                                value: 3,
+                                                label: Text(
+                                                  localizations
+                                                      .chartMonthsShort3,
+                                                ),
+                                              ),
+                                              ButtonSegment<int>(
+                                                value: 6,
+                                                label: Text(
+                                                  localizations
+                                                      .chartMonthsShort6,
+                                                ),
+                                              ),
+                                              ButtonSegment<int>(
+                                                value: 12,
+                                                label: Text(
+                                                  localizations
+                                                      .chartMonthsShort12,
+                                                ),
+                                              ),
+                                            ],
+                                            selected: {_chartMonths},
+                                            onSelectionChanged: (Set<int> next) {
+                                              setState(() {
+                                                _chartMonths = next.first;
+                                                _selectedCategoryIndices.clear();
+                                              });
+                                            },
                                           ),
-                                        ),
-                                        ButtonSegment<int>(
-                                          value: 6,
-                                          label: Text(
-                                            localizations.chartMonthsShort6,
-                                          ),
-                                        ),
-                                        ButtonSegment<int>(
-                                          value: 12,
-                                          label: Text(
-                                            localizations.chartMonthsShort12,
-                                          ),
-                                        ),
-                                      ],
-                                      selected: {_chartMonths},
-                                      onSelectionChanged: (Set<int> next) {
-                                        setState(() {
-                                          _chartMonths = next.first;
-                                          _selectedCategoryIndices.clear();
-                                        });
+                                        );
                                       },
                                     ),
                                     const SizedBox(height: 8),
@@ -445,105 +485,162 @@ class _HomePageState extends State<HomePage> {
                                                 final isWide =
                                                     constraints.maxWidth >=
                                                     AppLayout.breakpointWideCharts;
-                                                final cardWidth =
-                                                    isWide
-                                                        ? (constraints.maxWidth - 10) / 2
-                                                        : constraints.maxWidth;
+                                                final chartHeight = isWide
+                                                    ? 235.0
+                                                    : (constraints.maxWidth *
+                                                            0.42)
+                                                        .clamp(185.0, 215.0);
+
+                                                Widget buildChartCard(
+                                                  _CategoryStat category,
+                                                ) {
+                                                  final series =
+                                                      _buildCategorySeries(
+                                                        allBills,
+                                                        categoryName:
+                                                            category.name,
+                                                        locale: locale,
+                                                        months: _chartMonths,
+                                                      );
+                                                  final chartUnit =
+                                                      BillTypeUtils
+                                                                  .canonicalTypeKey(
+                                                                    category.name,
+                                                                  ) ==
+                                                              'Electricity'
+                                                          ? localizations
+                                                              .chartUnitKwh
+                                                          : BillTypeUtils
+                                                                      .canonicalTypeKey(
+                                                                        category
+                                                                            .name,
+                                                                      ) ==
+                                                                  'Water'
+                                                              ? localizations
+                                                                  .chartUnitWater
+                                                              : '';
+                                                  return _ChartCardStyled(
+                                                    title: _localizedCategoryName(
+                                                      localizations,
+                                                      category.name,
+                                                    ),
+                                                    badge: _formatTrend(
+                                                      series.values,
+                                                    ),
+                                                    badgeColor: _trendColor(
+                                                      series.values,
+                                                    ),
+                                                    badgeBackground:
+                                                        _trendBackground(
+                                                          series.values,
+                                                        ),
+                                                    chartHeight: chartHeight,
+                                                    isWide: isWide,
+                                                    child: _hasData(series.values)
+                                                        ? Column(
+                                                            children: [
+                                                              Expanded(
+                                                                child: Tooltip(
+                                                                  message:
+                                                                      localizations
+                                                                          .chartInteractionHint,
+                                                                  child: _InteractiveLineChart(
+                                                                    values:
+                                                                        series
+                                                                            .values,
+                                                                    maxValue:
+                                                                        _niceMax(
+                                                                          series
+                                                                              .values,
+                                                                        ),
+                                                                    lineColor:
+                                                                        category
+                                                                            .color,
+                                                                    yAxisUnit:
+                                                                        chartUnit
+                                                                            .isEmpty
+                                                                        ? null
+                                                                        : chartUnit,
+                                                                    labels:
+                                                                        series
+                                                                            .labels,
+                                                                    selectedIndex:
+                                                                        _effectiveChartIndex(
+                                                                      _selectedCategoryIndices[category
+                                                                          .name],
+                                                                      series
+                                                                          .values
+                                                                          .length,
+                                                                    ),
+                                                                    onSelected:
+                                                                        (index) {
+                                                                          setState(() {
+                                                                            _selectedCategoryIndices[category.name] =
+                                                                                index;
+                                                                          });
+                                                                        },
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                              _SelectedValueLabel(
+                                                                labels:
+                                                                    series.labels,
+                                                                values:
+                                                                    series.values,
+                                                                selectedIndex:
+                                                                    _selectedCategoryIndices[category
+                                                                        .name],
+                                                                suffix: chartUnit,
+                                                              ),
+                                                            ],
+                                                          )
+                                                        : _NoDataChart(
+                                                            text: localizations
+                                                                .noDataFound,
+                                                          ),
+                                                  );
+                                                }
+
+                                                if (dynamicCategories.length <=
+                                                    3) {
+                                                  return Row(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment.start,
+                                                    children: [
+                                                      for (var i = 0;
+                                                          i <
+                                                              dynamicCategories
+                                                                  .length;
+                                                          i++) ...[
+                                                        if (i > 0)
+                                                          const SizedBox(
+                                                            width: 10,
+                                                          ),
+                                                        Expanded(
+                                                          child: buildChartCard(
+                                                            dynamicCategories[i],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ],
+                                                  );
+                                                }
+
                                                 return Wrap(
                                                   spacing: 10,
                                                   runSpacing: 10,
-                                                  children:
-                                                      dynamicCategories.map((
-                                                        category,
-                                                      ) {
-                                                        final series =
-                                                            _buildCategorySeries(
-                                                              allBills,
-                                                              categoryName:
-                                                                  category.name,
-                                                              locale: locale,
-                                                              months:
-                                                                  _chartMonths,
-                                                            );
-                                                        final chartUnit =
-                                                            BillTypeUtils
-                                                                        .canonicalTypeKey(
-                                                                          category
-                                                                              .name,
-                                                                        ) ==
-                                                                    'Electricity'
-                                                                ? localizations
-                                                                    .chartUnitKwh
-                                                                : BillTypeUtils
-                                                                            .canonicalTypeKey(
-                                                                              category.name,
-                                                                            ) ==
-                                                                        'Water'
-                                                                    ? localizations
-                                                                        .chartUnitWater
-                                                                    : '';
-                                                        return SizedBox(
-                                                          width: cardWidth,
-                                                          child:
-                                                              _ChartCardStyled(
-                                                            title: _localizedCategoryName(
-                                                              localizations,
-                                                              category.name,
-                                                            ),
-                                                            badge: _formatTrend(
-                                                              series.values,
-                                                            ),
-                                                            badgeColor:
-                                                                _trendColor(
-                                                                  series.values,
-                                                                ),
-                                                            badgeBackground:
-                                                                _trendBackground(
-                                                                  series.values,
-                                                                ),
-                                                            child:
-                                                                _hasData(
-                                                                      series
-                                                                          .values,
-                                                                    )
-                                                                    ? Column(
-                                                                      children: [
-                                                                        Expanded(
-                                                                          child: Tooltip(
-                                                                            message:
-                                                                                localizations.chartInteractionHint,
-                                                                            child: _InteractiveLineChart(
-                                                                              values: series.values,
-                                                                              maxValue: _niceMax(series.values),
-                                                                              lineColor: category.color,
-                                                                              yAxisUnit: chartUnit.isEmpty ? null : chartUnit,
-                                                                              labels: series.labels,
-                                                                              selectedIndex: _effectiveChartIndex(
-                                                                                _selectedCategoryIndices[category.name],
-                                                                                series.values.length,
-                                                                              ),
-                                                                              onSelected: (index) {
-                                                                                setState(() {
-                                                                                  _selectedCategoryIndices[category.name] = index;
-                                                                                });
-                                                                              },
-                                                                            ),
-                                                                          ),
-                                                                        ),
-                                                                        _SelectedValueLabel(
-                                                                          labels: series.labels,
-                                                                          values: series.values,
-                                                                          selectedIndex: _selectedCategoryIndices[category.name],
-                                                                          suffix: chartUnit,
-                                                                        ),
-                                                                      ],
-                                                                    )
-                                                                    : _NoDataChart(
-                                                                      text: localizations.noDataFound,
-                                                                    ),
+                                                  children: dynamicCategories
+                                                      .map(
+                                                        (category) => SizedBox(
+                                                          width:
+                                                              constraints
+                                                                  .maxWidth,
+                                                          child: buildChartCard(
+                                                            category,
                                                           ),
-                                                        );
-                                                      }).toList(),
+                                                        ),
+                                                      )
+                                                      .toList(),
                                                 );
                                               },
                                             ),
@@ -947,8 +1044,8 @@ class _StatTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const horizontalPad = 7.0;
-        const verticalPad = 7.0;
+        const horizontalPad = 10.0;
+        const verticalPad = 12.0;
         final innerW = constraints.maxWidth > 2 * horizontalPad
             ? constraints.maxWidth - 2 * horizontalPad
             : 0.0;
@@ -971,23 +1068,23 @@ class _StatTile extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Icon(icon, color: AppColors.textOnDark, size: 18),
-                    const SizedBox(height: 3),
+                    Icon(icon, color: AppColors.textOnDark, size: 22),
+                    const SizedBox(height: 6),
                     Text(
                       value,
                       style: const TextStyle(
                         color: AppColors.textOnDark,
-                        fontSize: 22,
+                        fontSize: 26,
                         fontWeight: FontWeight.bold,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 1),
+                    const SizedBox(height: 4),
                     Text(
                       title,
                       style: const TextStyle(
                         color: AppColors.textOnDark,
-                        fontSize: 13,
+                        fontSize: 14,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1010,6 +1107,8 @@ class _ChartCardStyled extends StatelessWidget {
   final Color badgeColor;
   final Color badgeBackground;
   final Widget child;
+  final double chartHeight;
+  final bool isWide;
 
   const _ChartCardStyled({
     required this.title,
@@ -1017,6 +1116,8 @@ class _ChartCardStyled extends StatelessWidget {
     required this.badgeColor,
     required this.badgeBackground,
     required this.child,
+    this.chartHeight = 118,
+    this.isWide = false,
   });
 
   @override
@@ -1027,7 +1128,8 @@ class _ChartCardStyled extends StatelessWidget {
     final borderColor =
         isDark ? const Color(0xFF2C2C2C) : AppColors.borderLight;
     return Container(
-      padding: const EdgeInsets.all(12),
+      width: double.infinity,
+      padding: EdgeInsets.all(isWide ? 14 : 12),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(_cardRadius),
@@ -1040,9 +1142,9 @@ class _ChartCardStyled extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
-                  fontSize: 13,
+                  fontSize: isWide ? 14 : 13,
                 ),
               ),
               const Spacer(),
@@ -1064,7 +1166,11 @@ class _ChartCardStyled extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          SizedBox(height: 118, width: double.infinity, child: child),
+          SizedBox(
+            height: chartHeight,
+            width: double.infinity,
+            child: child,
+          ),
         ],
       ),
     );
@@ -1673,7 +1779,8 @@ class _SmartAnalyticsCard extends StatelessWidget {
     final textColor = isDark ? Colors.white : AppColors.textDark;
     final mutedText =
         isDark ? const Color(0xFFB0B0B0) : AppColors.textSecondary;
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final loc =
+        AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -1741,9 +1848,7 @@ class _SmartAnalyticsCard extends StatelessWidget {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            isArabic
-                                ? 'عدد التصنيفات المرتبطة: $categoriesCount'
-                                : 'Linked categories count: $categoriesCount',
+                            loc.linkedCategoriesCount(categoriesCount),
                             style: TextStyle(
                               color: mutedText,
                               fontSize: 12,
@@ -1901,7 +2006,6 @@ class _UserCategoriesPageState extends State<_UserCategoriesPage> {
     final borderColor =
         isDark ? const Color(0xFF2C2C2C) : AppColors.borderLight;
     final sorted = _sortedCategories();
-    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     return Scaffold(
       backgroundColor: background,
@@ -1932,13 +2036,11 @@ class _UserCategoriesPageState extends State<_UserCategoriesPage> {
                       segments: [
                         ButtonSegment<_CategorySortMode>(
                           value: _CategorySortMode.topActivity,
-                          label: Text(
-                            isArabic ? 'الأكثر نشاطًا' : 'Top activity',
-                          ),
+                          label: Text(loc.topActivity),
                         ),
                         ButtonSegment<_CategorySortMode>(
                           value: _CategorySortMode.topGrowth,
-                          label: Text(isArabic ? 'الأعلى نموًا' : 'Top growth'),
+                          label: Text(loc.topGrowth),
                         ),
                       ],
                       selected: {_sortMode},
@@ -1962,7 +2064,7 @@ class _UserCategoriesPageState extends State<_UserCategoriesPage> {
                                 );
                         final growth =
                             c.growthPct == null
-                                ? (isArabic ? '—' : '—')
+                                ? '—'
                                 : '${c.growthPct! >= 0 ? '+' : ''}${c.growthPct!.toStringAsFixed(1)}%';
                         final growthColor =
                             c.growthPct == null
@@ -2005,9 +2107,7 @@ class _UserCategoriesPageState extends State<_UserCategoriesPage> {
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      isArabic
-                                          ? 'آخر قراءة: $latest'
-                                          : 'Latest: $latest',
+                                      loc.latestReadingLabel(latest),
                                       style: TextStyle(
                                         color: mutedText,
                                         fontSize: 12,
@@ -2137,8 +2237,5 @@ class _InsightRow extends StatelessWidget {
 }
 
 String _localizedCategoryName(AppLocalizations localizations, String name) {
-  final key = BillTypeUtils.canonicalTypeKey(name).toLowerCase();
-  if (key == 'electricity') return localizations.billTypeElectricity;
-  if (key == 'water') return localizations.billTypeWater;
-  return name;
+  return localizations.localizedBillTypeName(name);
 }
