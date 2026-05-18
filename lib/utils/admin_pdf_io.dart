@@ -1,4 +1,3 @@
-//تحديد مكان حفظ الملفات (Downloads / Storage)
 import 'dart:io';
 
 import 'package:path_provider/path_provider.dart';
@@ -31,32 +30,4 @@ String safeExportFileName(String input) {
     return 'export';
   }
   return trimmed.replaceAll(RegExp(r'[^a-z0-9]+'), '_');
-}
-
-/// Open exported file using the OS default app.
-Future<void> openExportedFile(String filePath) async {
-  try {
-    if (filePath.trim().isEmpty) return;
-    if (Platform.isWindows) {
-      await Process.run('cmd', ['/c', 'start', '', filePath], runInShell: true);
-      return;
-    }
-    if (Platform.isMacOS) {
-      await Process.run('open', [filePath], runInShell: true);
-      return;
-    }
-    if (Platform.isLinux) {
-      await Process.run('xdg-open', [filePath], runInShell: true);
-      return;
-    }
-    if (Platform.isAndroid) {
-      await Process.run(
-        'am',
-        ['start', '-a', 'android.intent.action.VIEW', '-d', 'file://$filePath'],
-        runInShell: true,
-      );
-    }
-  } catch (_) {
-    // Keep export successful even if auto-open is unavailable.
-  }
 }

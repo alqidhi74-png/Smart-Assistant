@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'chatbot.dart';
 import 'navbar.dart';
-import '../constants/app_layout.dart';
-import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../models/bill_summary.dart';
 import '../utils/bill_type_utils.dart';

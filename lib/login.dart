@@ -110,8 +110,6 @@ class LoginState extends State<Login> with SingleTickerProviderStateMixin {
             );
     final cardColor =
         isDark ? const Color(0xFF121E33) : AppColors.backgroundWhite;
-    final cardBorder =
-        isDark ? const Color(0xFF223552) : const Color(0xFFE6EBF2);
     final titleColor = isDark ? Colors.white : AppColors.textDark;
     final subtitleColor =
         isDark ? const Color(0xFF9FB1C7) : AppColors.textSecondary;

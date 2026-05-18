@@ -1,9 +1,6 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' as intl;
 
-import '../constants/app_layout.dart';
 import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../data/bill_store.dart';
@@ -12,7 +9,6 @@ import '../models/bill_summary.dart';
 import '../services/bill_analysis_service.dart';
 import '../services/category_policy_service.dart';
 import '../utils/app_snackbar.dart';
-import '../utils/loading_overlay.dart';
 import '../utils/bill_date_utils.dart';
 
 class BillReviewPage extends StatefulWidget {
@@ -275,19 +271,6 @@ class _BillReviewPageState extends State<BillReviewPage> {
   AppLocalizations get _loc =>
       AppLocalizations.of(context) ?? AppLocalizations(const Locale('en'));
 
-  String? _validateRequired(String? v) {
-    if (v == null || v.trim().isEmpty) return _loc.fieldRequired;
-    return null;
-  }
-
-  String? _validatePositiveAmount(String? v) {
-    final req = _validateRequired(v);
-    if (req != null) return req;
-    final n = _parseDoubleLoose(v!.trim());
-    if (n == null || n <= 0) return _loc.billReviewErrInvalidNumber;
-    return null;
-  }
-
   Future<void> _save() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
@@ -349,7 +332,6 @@ class _BillReviewPageState extends State<BillReviewPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final textColor = isDark ? Colors.white : AppColors.textDark;
     final subtextColor = isDark ? Colors.white70 : AppColors.textSecondary;
     final hintColor = isDark ? Colors.grey[500] : Colors.grey[600];
 

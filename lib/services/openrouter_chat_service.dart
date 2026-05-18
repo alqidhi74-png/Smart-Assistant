@@ -1,4 +1,6 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../constants/api_keys.dart';
 
@@ -72,13 +74,13 @@ class OpenRouterChatService {
           return data['choices'][0]['message']['content'] ?? '';
         } else {
           lastError = 'Status ${response.statusCode}: ${response.body}';
-          print('OPENROUTER ERROR ($model): $lastError');
+          debugPrint('OPENROUTER ERROR ($model): $lastError');
           // If we get a 401, it means the key is rejected, no point in trying other models
           if (response.statusCode == 401) break;
         }
       } catch (e) {
         lastError = e;
-        print('OPENROUTER EXCEPTION ($model): $e');
+        debugPrint('OPENROUTER EXCEPTION ($model): $e');
       }
     }
 

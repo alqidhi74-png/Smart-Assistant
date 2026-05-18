@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
-import '../constants/colors.dart';
 import '../constants/language.dart';
 import '../data/bill_store.dart';
 import '../models/bill_summary.dart';
-import '../utils/bill_type_utils.dart';
-import '../utils/omr_format.dart';
 import '../utils/bill_list_query.dart';
 import '../services/categories_rtdb_hub.dart';
 import '../utils/category_rtdb_style.dart';
@@ -293,111 +290,6 @@ class _MyBillsPageState extends State<MyBillsPage> {
       return isAr
         ? 'فاتورة $type مرتفعة هذا الشهر. نوصي بمراجعة نمط الاستخدام لتحديد الأجهزة التي تستهلك طاقة أكبر.'
         : '$type bills rose by $valStr. Reviewing your usage patterns this month can help identify the appliance causing the spike.';
-    }
-  }
-
-  Widget _buildSavingTips(AppLocalizations loc, bool isDark) {
-    return ValueListenableBuilder<List<BillSummary>>(
-      valueListenable: BillStore.instance.bills,
-      builder: (context, bills, _) {
-        final tip = _generateSmartTip(bills, loc);
-        if (tip == null) return const SizedBox.shrink();
-
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: isDark 
-                ? [const Color(0xFF1A237E).withOpacity(0.3), const Color(0xFF0D47A1).withOpacity(0.1)]
-                : [const Color(0xFFE3F2FD), Colors.white],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.blue.withOpacity(isDark ? 0.2 : 0.5)),
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), shape: BoxShape.circle),
-                child: const Icon(Icons.lightbulb_outline, color: Colors.blue, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      loc.locale.languageCode == 'ar' ? 'نصيحة توفير ذكية' : 'Smart Saving Tip',
-                      style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 13),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      tip,
-                      style: TextStyle(color: isDark ? Colors.white70 : Colors.black87, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  String? _generateSmartTip(List<BillSummary> bills, AppLocalizations loc) {
-    if (bills.isEmpty) return null;
-    
-    // Find all categories with an increase (> 0%)
-    final increases = <String, double>{};
-    final categories = bills.map((b) => b.type).toSet();
-    
-    for (var cat in categories) {
-      final sameType = bills.where((b) => b.type == cat).toList();
-      if (sameType.length >= 2) {
-        final diff = _calculateUsageDiff(sameType[0], sameType[1]);
-        if (diff != null && diff > 0) {
-          increases[cat] = diff;
-        }
-      }
-    }
-
-    final isAr = loc.locale.languageCode == 'ar';
-    final month = DateTime.now().month;
-    final isSummer = month >= 5 && month <= 10;
-
-    if (increases.isEmpty) {
-      return isAr 
-        ? 'استهلاكك في المسار الصحيح! استمر في اتباع العادات الموفرة للحفاظ على استقرار فواتيرك.' 
-        : 'Your consumption is on track! Keep up your efficient habits to maintain stable bills.';
-    }
-
-    // Sort by highest increase percentage
-    final sorted = increases.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
-    final worstCat = sorted.first.key;
-    final worstVal = sorted.first.value.toStringAsFixed(0);
-
-    if (worstCat.toLowerCase().contains('electric') || worstCat.contains('كهرب')) {
-      if (isSummer) {
-        return isAr
-          ? 'بسبب حرارة الصيف، زاد استهلاكك بنسبة $worstVal%. الأسباب المرجحة هي المكيفات؛ تأكد من تنظيف الفلاتر وضبط الحرارة على 24.'
-          : 'Due to summer heat, usage is up $worstVal%. Likely cause: ACs; try cleaning filters and setting temp to 24°C.';
-      } else {
-        return isAr
-          ? 'لاحظنا زيادة $worstVal% في الكهرباء. في هذا الموسم، غالباً ما تكون سخانات المياه أو أجهزة التدفئة هي السبب الرئيسي.'
-          : 'Electricity is up $worstVal%. During this season, water heaters or heating appliances are often the main cause.';
-      }
-    } else if (worstCat.toLowerCase().contains('water') || worstCat.contains('مياه')) {
-      return isAr
-        ? 'استهلاك المياه زاد بنسبة $worstVal%. ننصح بفحص التوصيلات الخارجية أو نظام الري؛ فالتسريبات الخفية هي السبب الأكثر شيوعاً.'
-        : 'Water usage increased by $worstVal%. We suggest checking external pipes or irrigation; hidden leaks are the most common cause.';
-    } else {
-      return isAr
-        ? 'هناك ارتفاع في فواتير $worstCat بنسبة $worstVal%. مراجعة نمط الاستخدام لهذا الشهر قد تساعدك في تحديد الجهاز المسبب للزيادة.'
-        : '$worstCat bills rose by $worstVal%. Reviewing your usage patterns this month can help identify the appliance causing the spike.';
     }
   }
 

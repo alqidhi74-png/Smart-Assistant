@@ -33,7 +33,7 @@ class Database {
       });
     } catch (e) {
       if (kDebugMode) {
-        print('Error registering user: $e');
+        debugPrint('Error registering user: $e');
       }
       rethrow;
     }
@@ -44,28 +44,5 @@ class Database {
     Map<String, dynamic> updatedData,
   ) async {
     await db1.child(uid).update(updatedData);
-  }
-
-  Future<List<Map<String, dynamic>>> fetchUsers() async {
-    final snapshot = await db1.get();
-    if (snapshot.exists) {
-      Map data = snapshot.value as Map;
-      List<Map<String, dynamic>> userList = [];
-      data.forEach((key, value) {
-        userList.add({
-          'uid': key,
-          'fullName': value['fullName'] ?? '',
-          'email': value['email'] ?? '',
-          'admin': value['admin'] ?? 'N',
-        });
-      });
-      return userList;
-    } else {
-      return [];
-    }
-  }
-
-  Future<void> updateAdminStatus(String uid, String newValue) async {
-    await db1.child(uid).update({'admin': newValue});
   }
 }

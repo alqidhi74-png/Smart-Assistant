@@ -1,4 +1,7 @@
 import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
+
 import '../models/bill_analysis.dart';
 import 'openrouter_chat_service.dart';
 
@@ -64,7 +67,7 @@ Do NOT include any explanations or markdown symbols.
         billingMonthKey: data['billingMonthKey'],
       );
     } catch (e) {
-      print('AI Extraction failed: $e');
+      debugPrint('AI Extraction failed: $e');
       // Return a result with raw text so local NLP can be used as fallback
       return BillAnalysisResult(rawText: rawText);
     }
